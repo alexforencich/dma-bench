@@ -182,6 +182,17 @@ async def run_test(dut):
 
     assert mem_data[0:1024] == mem_data[0x1000:0x1000+1024]
 
+    tb.log.info("Read statistics counters")
+
+    await Timer(2000, 'ns')
+
+    lst = []
+
+    for k in range(32):
+        lst.append(await tb.rc.mem_read_dword(dev_pf0_bar0+0x010000+k*4))
+
+    print(lst)
+
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
 
@@ -191,6 +202,7 @@ async def run_test(dut):
 tests_dir = os.path.dirname(__file__)
 rtl_dir = os.path.abspath(os.path.join(tests_dir, '..', '..', 'rtl'))
 lib_dir = os.path.abspath(os.path.join(rtl_dir, '..', 'lib'))
+axi_rtl_dir = os.path.abspath(os.path.join(lib_dir, 'axi', 'rtl'))
 pcie_rtl_dir = os.path.abspath(os.path.join(lib_dir, 'pcie', 'rtl'))
 
 
@@ -203,6 +215,11 @@ def test_dma_bench_pcie(request, pcie_data_width):
     verilog_sources = [
         os.path.join(rtl_dir, f"{dut}.v"),
         os.path.join(rtl_dir, "dma_bench.v"),
+        os.path.join(rtl_dir, "stats_counter.v"),
+        os.path.join(rtl_dir, "stats_collect.v"),
+        os.path.join(rtl_dir, "stats_pcie_if.v"),
+        os.path.join(rtl_dir, "stats_pcie_tlp.v"),
+        os.path.join(axi_rtl_dir, "axil_interconnect.v"),
         os.path.join(pcie_rtl_dir, "pcie_axil_master.v"),
         os.path.join(pcie_rtl_dir, "dma_if_pcie.v"),
         os.path.join(pcie_rtl_dir, "dma_if_pcie_rd.v"),

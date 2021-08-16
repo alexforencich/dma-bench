@@ -482,6 +482,76 @@ status_error_uncor_pm_inst (
     .pulse_out(status_error_uncor)
 );
 
+wire [23:0]  axis_stat_pcie_tdata;
+wire [4:0]   axis_stat_pcie_tid;
+wire         axis_stat_pcie_tvalid;
+wire         axis_stat_pcie_tready;
+
+stats_pcie_if #(
+    .TLP_SEG_COUNT(TLP_SEG_COUNT),
+    .TLP_SEG_HDR_WIDTH(TLP_SEG_HDR_WIDTH),
+    .STAT_INC_WIDTH(24),
+    .STAT_ID_WIDTH(5),
+    .UPDATE_PERIOD(1024)
+)
+stats_pcie_if_inst (
+    .clk(clk),
+    .rst(rst),
+
+    /*
+     * monitor input (request to BAR)
+     */
+    .rx_req_tlp_hdr(rx_req_tlp_hdr),
+    .rx_req_tlp_valid(rx_req_tlp_valid && rx_req_tlp_ready),
+    .rx_req_tlp_sop(rx_req_tlp_sop),
+    .rx_req_tlp_eop(rx_req_tlp_eop),
+
+    /*
+     * monitor input (completion to DMA)
+     */
+    .rx_cpl_tlp_hdr(rx_cpl_tlp_hdr),
+    .rx_cpl_tlp_valid(rx_cpl_tlp_valid && rx_cpl_tlp_ready),
+    .rx_cpl_tlp_sop(rx_cpl_tlp_sop),
+    .rx_cpl_tlp_eop(rx_cpl_tlp_eop),
+
+    /*
+     * monitor input (read request from DMA)
+     */
+    .tx_rd_req_tlp_hdr(tx_rd_req_tlp_hdr),
+    .tx_rd_req_tlp_valid(tx_rd_req_tlp_valid && tx_rd_req_tlp_ready),
+    .tx_rd_req_tlp_sop(tx_rd_req_tlp_sop),
+    .tx_rd_req_tlp_eop(tx_rd_req_tlp_eop),
+
+    /*
+     * monitor input (write request from DMA)
+     */
+    .tx_wr_req_tlp_hdr(tx_wr_req_tlp_hdr),
+    .tx_wr_req_tlp_valid(tx_wr_req_tlp_valid && tx_wr_req_tlp_ready),
+    .tx_wr_req_tlp_sop(tx_wr_req_tlp_sop),
+    .tx_wr_req_tlp_eop(tx_wr_req_tlp_eop),
+
+    /*
+     * monitor input (completion from BAR)
+     */
+    .tx_cpl_tlp_hdr(tx_cpl_tlp_hdr),
+    .tx_cpl_tlp_valid(tx_cpl_tlp_valid && tx_cpl_tlp_ready),
+    .tx_cpl_tlp_sop(tx_cpl_tlp_sop),
+    .tx_cpl_tlp_eop(tx_cpl_tlp_eop),
+
+    /*
+     * Statistics output
+     */
+    .m_axis_stat_tdata(axis_stat_pcie_tdata),
+    .m_axis_stat_tid(axis_stat_pcie_tid),
+    .m_axis_stat_tvalid(axis_stat_pcie_tvalid),
+    .m_axis_stat_tready(axis_stat_pcie_tready),
+
+    /*
+     * Control inputs
+     */
+    .update(1'b0)
+);
+
 dma_bench #(
     .AXIL_DATA_WIDTH(AXIL_DATA_WIDTH),
     .AXIL_ADDR_WIDTH(AXIL_ADDR_WIDTH),
@@ -494,7 +564,9 @@ dma_bench #(
     .RAM_SEG_ADDR_WIDTH(RAM_SEG_ADDR_WIDTH),
     .RAM_SEG_BE_WIDTH(RAM_SEG_BE_WIDTH),
     .RAM_SEL_WIDTH(RAM_SEL_WIDTH),
-    .RAM_ADDR_WIDTH(RAM_ADDR_WIDTH)
+    .RAM_ADDR_WIDTH(RAM_ADDR_WIDTH),
+    .STAT_INC_WIDTH(24),
+    .STAT_ID_WIDTH(5)
 )
 dma_bench_inst (
     .clk(clk),
@@ -580,7 +652,15 @@ dma_bench_inst (
     /*
      * MSI request outputs
      */
-    .msi_irq(msi_irq)
+    .msi_irq(msi_irq),
+
+    /*
+     * Statistics input
+     */
+    .s_axis_stat_tdata(axis_stat_pcie_tdata),
+    .s_axis_stat_tid(axis_stat_pcie_tid),
+    .s_axis_stat_tvalid(axis_stat_pcie_tvalid),
+    .s_axis_stat_tready(axis_stat_pcie_tready)
 );
 
 endmodule
