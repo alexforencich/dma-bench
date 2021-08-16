@@ -45,6 +45,32 @@ static const struct pci_device_id pci_ids[] = {
 
 MODULE_DEVICE_TABLE(pci, pci_ids);
 
+static LIST_HEAD(dma_bench_devices);
+static DEFINE_SPINLOCK(dma_bench_devices_lock);
+
+static unsigned int dma_bench_get_free_id(void)
+{
+    struct dma_bench_dev *dma_bench_dev;
+    unsigned int id = 0;
+    bool available = false;
+
+    while (!available)
+    {
+        available = true;
+        list_for_each_entry(dma_bench_dev, &dma_bench_devices, dev_list_node)
+        {
+            if (dma_bench_dev->id == id)
+            {
+                available = false;
+                id++;
+                break;
+            }
+        }
+    }
+
+    return id;
+}
+
 static irqreturn_t dma_bench_intr(int irq, void *data)
 {
     struct dma_bench_dev *dma_bench_dev = data;
@@ -93,6 +119,14 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 
     dma_bench_dev->dev = dev;
     pci_set_drvdata(pdev, dma_bench_dev);
+
+    // assign ID and add to list
+    spin_lock(&dma_bench_devices_lock);
+    dma_bench_dev->id = dma_bench_get_free_id();
+    list_add_tail(&dma_bench_dev->dev_list_node, &dma_bench_devices);
+    spin_unlock(&dma_bench_devices_lock);
+
+    snprintf(dma_bench_dev->name, sizeof(dma_bench_dev->name), DRIVER_NAME "%d", dma_bench_dev->id);
 
     // Allocate DMA buffer
     dma_bench_dev->dma_region_len = 16*1024;
@@ -157,6 +191,21 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
     // Enable bus mastering for DMA
     pci_set_master(pdev);
 
+    // Register misc device
+    dma_bench_dev->misc_dev.minor = MISC_DYNAMIC_MINOR;
+    dma_bench_dev->misc_dev.name = dma_bench_dev->name;
+    dma_bench_dev->misc_dev.fops = &dma_bench_fops;
+    dma_bench_dev->misc_dev.parent = dev;
+
+    ret = misc_register(&dma_bench_dev->misc_dev);
+    if (ret)
+    {
+        dev_err(dev, "misc_register failed: %d\n", ret);
+        goto fail_miscdev;
+    }
+
+    dev_info(dev, "Registered device %s", dma_bench_dev->name);
+
     // Dump counters
     dev_info(dev, "Statistics counters");
     print_counters(dma_bench_dev);
@@ -217,6 +266,7 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
     return 0;
 
     // error handling
+fail_miscdev:
     pci_clear_master(pdev);
 fail_irq:
     pci_free_irq_vectors(pdev);
@@ -228,6 +278,9 @@ fail_regions:
 fail_enable_device:
     dma_free_coherent(dev, dma_bench_dev->dma_region_len, dma_bench_dev->dma_region, dma_bench_dev->dma_region_addr);
 fail_dma_alloc:
+    spin_lock(&dma_bench_devices_lock);
+    list_del(&dma_bench_dev->dev_list_node);
+    spin_unlock(&dma_bench_devices_lock);
     return ret;
 }
 
@@ -242,6 +295,8 @@ static void dma_bench_remove(struct pci_dev *pdev)
         return;
     }
 
+    misc_deregister(&dma_bench_dev->misc_dev);
+
     pci_clear_master(pdev);
     pci_free_irq(pdev, 0, dma_bench_dev);
     pci_free_irq_vectors(pdev);
@@ -249,6 +304,9 @@ static void dma_bench_remove(struct pci_dev *pdev)
     pci_release_regions(pdev);
     pci_disable_device(pdev);
     dma_free_coherent(dev, dma_bench_dev->dma_region_len, dma_bench_dev->dma_region, dma_bench_dev->dma_region_addr);
+    spin_lock(&dma_bench_devices_lock);
+    list_del(&dma_bench_dev->dev_list_node);
+    spin_unlock(&dma_bench_devices_lock);
 }
 
 static void dma_bench_shutdown(struct pci_dev *pdev)

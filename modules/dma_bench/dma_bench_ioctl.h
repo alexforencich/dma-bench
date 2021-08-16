@@ -22,47 +22,17 @@ THE SOFTWARE.
 
 */
 
-#ifndef DMA_BENCH_H
-#define DMA_BENCH_H
+#ifndef DMA_BENCH_IOCTL_H
+#define DMA_BENCH_IOCTL_H
 
-#include <linux/kernel.h>
-#include <linux/pci.h>
-#include <linux/miscdevice.h>
+#include <linux/types.h>
 
-#define DRIVER_NAME "dma_bench"
-#define DRIVER_VERSION "0.1"
+#define DMA_BENCH_IOCTL_TYPE 0x42
 
-#include "dma_bench_hw.h"
+#define DMA_BENCH_IOCTL_INFO _IOR(DMA_BENCH_IOCTL_TYPE, 0xf0, struct dma_bench_ioctl_info)
 
-struct dma_bench_dev {
-    struct device *dev;
-
-    size_t hw_regs_size;
-    phys_addr_t hw_regs_phys;
-    void * __iomem hw_addr;
-
-    char name[16];
-
-    int irq_count;
-    int irq_map[32];
-
-    unsigned int id;
-    struct list_head dev_list_node;
-
-    struct miscdevice misc_dev;
-
-    // DMA buffer
-    size_t dma_region_len;
-    void *dma_region;
-    dma_addr_t dma_region_addr;
-
-    int irqcount;
+struct dma_bench_ioctl_info {
+    size_t regs_size;
 };
 
-// dma_bench_dev.c
-extern const struct file_operations dma_bench_fops;
-
-// dma_bench_stats.c
-extern const char *dma_bench_stats_names[];
-
-#endif /* DMA_BENCH_H */
+#endif /* DMA_BENCH_IOCTL_H */
