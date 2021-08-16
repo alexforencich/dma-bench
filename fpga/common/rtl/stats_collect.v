@@ -68,7 +68,7 @@ module stats_collect #
 
 parameter COUNT_WIDTH = $clog2(COUNT);
 parameter PERIOD_COUNT_WIDTH = $clog2(UPDATE_PERIOD-1);
-parameter ACC_WIDTH = STAT_INC_WIDTH+COUNT_WIDTH+1;
+parameter ACC_WIDTH = INC_WIDTH+COUNT_WIDTH+1;
 
 localparam [1:0]
     STATE_READ = 2'd0,
