@@ -235,7 +235,7 @@ class TB(object):
 
         self.dev.functions[0].msi_multiple_message_capable = 5
 
-        self.dev.functions[0].configure_bar(0, 2**22)
+        self.dev.functions[0].configure_bar(0, 2**24)
 
         # monitor error outputs
         self.status_error_cor_asserted = False
@@ -280,33 +280,33 @@ async def run_test(dut):
     mem_data[0:1024] = bytearray([x % 256 for x in range(1024)])
 
     # enable DMA
-    await tb.rc.mem_write_dword(dev_pf0_bar0+0x100000, 1)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x000000, 1)
 
     # write pcie read descriptor
-    await tb.rc.mem_write_dword(dev_pf0_bar0+0x100100, (mem_base+0x0000) & 0xffffffff)
-    await tb.rc.mem_write_dword(dev_pf0_bar0+0x100104, (mem_base+0x0000 >> 32) & 0xffffffff)
-    await tb.rc.mem_write_dword(dev_pf0_bar0+0x100108, 0x100)
-    await tb.rc.mem_write_dword(dev_pf0_bar0+0x100110, 0x400)
-    await tb.rc.mem_write_dword(dev_pf0_bar0+0x100114, 0xAA)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x000100, (mem_base+0x0000) & 0xffffffff)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x000104, (mem_base+0x0000 >> 32) & 0xffffffff)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x000108, 0x100)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x000110, 0x400)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x000114, 0xAA)
 
     await Timer(2000, 'ns')
 
     # read status
-    val = await tb.rc.mem_read_dword(dev_pf0_bar0+0x100118)
+    val = await tb.rc.mem_read_dword(dev_pf0_bar0+0x000118)
     tb.log.info("Status: 0x%x", val)
     assert val == 0x800000AA
 
     # write pcie write descriptor
-    await tb.rc.mem_write_dword(dev_pf0_bar0+0x100200, (mem_base+0x1000) & 0xffffffff)
-    await tb.rc.mem_write_dword(dev_pf0_bar0+0x100204, (mem_base+0x1000 >> 32) & 0xffffffff)
-    await tb.rc.mem_write_dword(dev_pf0_bar0+0x100208, 0x100)
-    await tb.rc.mem_write_dword(dev_pf0_bar0+0x100210, 0x400)
-    await tb.rc.mem_write_dword(dev_pf0_bar0+0x100214, 0x55)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x000200, (mem_base+0x1000) & 0xffffffff)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x000204, (mem_base+0x1000 >> 32) & 0xffffffff)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x000208, 0x100)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x000210, 0x400)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x000214, 0x55)
 
     await Timer(2000, 'ns')
 
     # read status
-    val = await tb.rc.mem_read_dword(dev_pf0_bar0+0x100218)
+    val = await tb.rc.mem_read_dword(dev_pf0_bar0+0x000218)
     tb.log.info("Status: 0x%x", val)
     assert val == 0x80000055
 
