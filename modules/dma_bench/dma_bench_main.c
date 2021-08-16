@@ -48,7 +48,7 @@ MODULE_DEVICE_TABLE(pci, pci_ids);
 static irqreturn_t dma_bench_intr(int irq, void *data)
 {
     struct dma_bench_dev *dma_bench_dev = data;
-    struct device *dev = &dma_bench_dev->pdev->dev;
+    struct device *dev = dma_bench_dev->dev;
 
     dma_bench_dev->irqcount++;
 
@@ -75,7 +75,7 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
         return -ENOMEM;
     }
 
-    dma_bench_dev->pdev = pdev;
+    dma_bench_dev->dev = dev;
     pci_set_drvdata(pdev, dma_bench_dev);
 
     // Allocate DMA buffer

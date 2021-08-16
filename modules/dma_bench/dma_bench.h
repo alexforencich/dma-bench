@@ -33,7 +33,7 @@ THE SOFTWARE.
 #include "dma_bench_hw.h"
 
 struct dma_bench_dev {
-    struct pci_dev *pdev;
+    struct device *dev;
 
     size_t hw_regs_size;
     phys_addr_t hw_regs_phys;
