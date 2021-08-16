@@ -57,6 +57,22 @@ static irqreturn_t dma_bench_intr(int irq, void *data)
     return IRQ_HANDLED;
 }
 
+static void print_counters(struct dma_bench_dev *dma_bench_dev)
+{
+    struct device *dev = dma_bench_dev->dev;
+
+    int index = 0;
+
+    while (dma_bench_stats_names[index])
+    {
+        if (strlen(dma_bench_stats_names[index]) > 0)
+        {
+            dev_info(dev, "%s: %d", dma_bench_stats_names[index], ioread32(dma_bench_dev->hw_addr+0x010000+index*4));
+        }
+        index++;
+    }
+}
+
 static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
     int ret = 0;
@@ -142,35 +158,8 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
     pci_set_master(pdev);
 
     // Dump counters
-    dev_info(dev, "TLP counters");
-    dev_info(dev, "RX Mem Rd TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010000));
-    dev_info(dev, "RX Mem Wr TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010004));
-    dev_info(dev, "RX IO Rd/Wr TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010008));
-    dev_info(dev, "RX Cfg Rd/Wr TLP: %d", ioread32(dma_bench_dev->hw_addr+0x01000C));
-    dev_info(dev, "RX Msg TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010010));
-    dev_info(dev, "RX CPL TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010014));
-    dev_info(dev, "RX CPL TLP (UR): %d", ioread32(dma_bench_dev->hw_addr+0x010018));
-    dev_info(dev, "RX CPL TLP (CA): %d", ioread32(dma_bench_dev->hw_addr+0x01001C));
-    dev_info(dev, "RX AtomicOp TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010020));
-    dev_info(dev, "RX Poisoned TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010024));
-    dev_info(dev, "RX Header DW: %d", ioread32(dma_bench_dev->hw_addr+0x010028));
-    dev_info(dev, "RX Request DW: %d", ioread32(dma_bench_dev->hw_addr+0x01002C));
-    dev_info(dev, "RX Payload DW: %d", ioread32(dma_bench_dev->hw_addr+0x010030));
-    dev_info(dev, "RX Completion DW: %d", ioread32(dma_bench_dev->hw_addr+0x010034));
-    dev_info(dev, "TX Mem Rd TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010040));
-    dev_info(dev, "TX Mem Wr TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010044));
-    dev_info(dev, "TX IO Rd/Wr TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010048));
-    dev_info(dev, "TX Cfg Rd/Wr TLP: %d", ioread32(dma_bench_dev->hw_addr+0x01004C));
-    dev_info(dev, "TX Msg TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010050));
-    dev_info(dev, "TX CPL TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010054));
-    dev_info(dev, "TX CPL TLP (UR): %d", ioread32(dma_bench_dev->hw_addr+0x010058));
-    dev_info(dev, "TX CPL TLP (CA): %d", ioread32(dma_bench_dev->hw_addr+0x01005C));
-    dev_info(dev, "TX AtomicOp TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010060));
-    dev_info(dev, "TX Poisoned TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010064));
-    dev_info(dev, "TX Header DW: %d", ioread32(dma_bench_dev->hw_addr+0x010068));
-    dev_info(dev, "TX Request DW: %d", ioread32(dma_bench_dev->hw_addr+0x01006C));
-    dev_info(dev, "TX Payload DW: %d", ioread32(dma_bench_dev->hw_addr+0x010070));
-    dev_info(dev, "TX Completion DW: %d", ioread32(dma_bench_dev->hw_addr+0x010074));
+    dev_info(dev, "Statistics counters");
+    print_counters(dma_bench_dev);
 
     // PCIe DMA test
     dev_info(dev, "write test data");
@@ -221,35 +210,8 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
     print_hex_dump(KERN_INFO, "", DUMP_PREFIX_NONE, 16, 1, dma_bench_dev->dma_region+0x0200, 256, true);
 
     // Dump counters
-    dev_info(dev, "TLP counters");
-    dev_info(dev, "RX Mem Rd TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010000));
-    dev_info(dev, "RX Mem Wr TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010004));
-    dev_info(dev, "RX IO Rd/Wr TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010008));
-    dev_info(dev, "RX Cfg Rd/Wr TLP: %d", ioread32(dma_bench_dev->hw_addr+0x01000C));
-    dev_info(dev, "RX Msg TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010010));
-    dev_info(dev, "RX CPL TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010014));
-    dev_info(dev, "RX CPL TLP (UR): %d", ioread32(dma_bench_dev->hw_addr+0x010018));
-    dev_info(dev, "RX CPL TLP (CA): %d", ioread32(dma_bench_dev->hw_addr+0x01001C));
-    dev_info(dev, "RX AtomicOp TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010020));
-    dev_info(dev, "RX Poisoned TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010024));
-    dev_info(dev, "RX Header DW: %d", ioread32(dma_bench_dev->hw_addr+0x010028));
-    dev_info(dev, "RX Request DW: %d", ioread32(dma_bench_dev->hw_addr+0x01002C));
-    dev_info(dev, "RX Payload DW: %d", ioread32(dma_bench_dev->hw_addr+0x010030));
-    dev_info(dev, "RX Completion DW: %d", ioread32(dma_bench_dev->hw_addr+0x010034));
-    dev_info(dev, "TX Mem Rd TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010040));
-    dev_info(dev, "TX Mem Wr TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010044));
-    dev_info(dev, "TX IO Rd/Wr TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010048));
-    dev_info(dev, "TX Cfg Rd/Wr TLP: %d", ioread32(dma_bench_dev->hw_addr+0x01004C));
-    dev_info(dev, "TX Msg TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010050));
-    dev_info(dev, "TX CPL TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010054));
-    dev_info(dev, "TX CPL TLP (UR): %d", ioread32(dma_bench_dev->hw_addr+0x010058));
-    dev_info(dev, "TX CPL TLP (CA): %d", ioread32(dma_bench_dev->hw_addr+0x01005C));
-    dev_info(dev, "TX AtomicOp TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010060));
-    dev_info(dev, "TX Poisoned TLP: %d", ioread32(dma_bench_dev->hw_addr+0x010064));
-    dev_info(dev, "TX Header DW: %d", ioread32(dma_bench_dev->hw_addr+0x010068));
-    dev_info(dev, "TX Request DW: %d", ioread32(dma_bench_dev->hw_addr+0x01006C));
-    dev_info(dev, "TX Payload DW: %d", ioread32(dma_bench_dev->hw_addr+0x010070));
-    dev_info(dev, "TX Completion DW: %d", ioread32(dma_bench_dev->hw_addr+0x010074));
+    dev_info(dev, "Statistics counters");
+    print_counters(dma_bench_dev);
 
     // probe complete
     return 0;

@@ -47,4 +47,7 @@ struct dma_bench_dev {
     int irqcount;
 };
 
+// dma_bench_stats.c
+extern const char *dma_bench_stats_names[];
+
 #endif /* DMA_BENCH_H */
