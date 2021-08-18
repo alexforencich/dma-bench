@@ -263,6 +263,10 @@ reg [AXIL_DATA_WIDTH-1:0] axil_csr_rdata_reg = {AXIL_DATA_WIDTH{1'b0}}, axil_csr
 reg [1:0] axil_csr_rresp_reg = 2'b00, axil_csr_rresp_next;
 reg axil_csr_rvalid_reg = 1'b0, axil_csr_rvalid_next;
 
+reg [63:0] cycle_count_reg = 0;
+reg [15:0] dma_read_active_count_reg = 0;
+reg [15:0] dma_write_active_count_reg = 0;
+
 reg [DMA_ADDR_WIDTH-1:0] dma_read_desc_dma_addr_reg = 0, dma_read_desc_dma_addr_next;
 reg [RAM_ADDR_WIDTH-1:0] dma_read_desc_ram_addr_reg = 0, dma_read_desc_ram_addr_next;
 reg [DMA_LEN_WIDTH-1:0] dma_read_desc_len_reg = 0, dma_read_desc_len_next;
@@ -284,6 +288,34 @@ reg [3:0] dma_write_desc_status_error_reg = 0, dma_write_desc_status_error_next;
 reg dma_write_desc_status_valid_reg = 0, dma_write_desc_status_valid_next;
 
 reg dma_enable_reg = 0, dma_enable_next;
+reg dma_rd_int_en_reg = 0, dma_rd_int_en_next;
+reg dma_wr_int_en_reg = 0, dma_wr_int_en_next;
+
+reg dma_read_block_run_reg = 1'b0, dma_read_block_run_next;
+reg [DMA_LEN_WIDTH-1:0] dma_read_block_len_reg = 0, dma_read_block_len_next;
+reg [31:0] dma_read_block_count_reg = 0, dma_read_block_count_next;
+reg [63:0] dma_read_block_cycle_count_reg = 0, dma_read_block_cycle_count_next;
+reg [DMA_ADDR_WIDTH-1:0] dma_read_block_dma_base_addr_reg = 0, dma_read_block_dma_base_addr_next;
+reg [DMA_ADDR_WIDTH-1:0] dma_read_block_dma_offset_reg = 0, dma_read_block_dma_offset_next;
+reg [DMA_ADDR_WIDTH-1:0] dma_read_block_dma_offset_mask_reg = 0, dma_read_block_dma_offset_mask_next;
+reg [DMA_ADDR_WIDTH-1:0] dma_read_block_dma_stride_reg = 0, dma_read_block_dma_stride_next;
+reg [RAM_ADDR_WIDTH-1:0] dma_read_block_ram_base_addr_reg = 0, dma_read_block_ram_base_addr_next;
+reg [RAM_ADDR_WIDTH-1:0] dma_read_block_ram_offset_reg = 0, dma_read_block_ram_offset_next;
+reg [RAM_ADDR_WIDTH-1:0] dma_read_block_ram_offset_mask_reg = 0, dma_read_block_ram_offset_mask_next;
+reg [RAM_ADDR_WIDTH-1:0] dma_read_block_ram_stride_reg = 0, dma_read_block_ram_stride_next;
+
+reg dma_write_block_run_reg = 1'b0, dma_write_block_run_next;
+reg [DMA_LEN_WIDTH-1:0] dma_write_block_len_reg = 0, dma_write_block_len_next;
+reg [31:0] dma_write_block_count_reg = 0, dma_write_block_count_next;
+reg [63:0] dma_write_block_cycle_count_reg = 0, dma_write_block_cycle_count_next;
+reg [DMA_ADDR_WIDTH-1:0] dma_write_block_dma_base_addr_reg = 0, dma_write_block_dma_base_addr_next;
+reg [DMA_ADDR_WIDTH-1:0] dma_write_block_dma_offset_reg = 0, dma_write_block_dma_offset_next;
+reg [DMA_ADDR_WIDTH-1:0] dma_write_block_dma_offset_mask_reg = 0, dma_write_block_dma_offset_mask_next;
+reg [DMA_ADDR_WIDTH-1:0] dma_write_block_dma_stride_reg = 0, dma_write_block_dma_stride_next;
+reg [RAM_ADDR_WIDTH-1:0] dma_write_block_ram_base_addr_reg = 0, dma_write_block_ram_base_addr_next;
+reg [RAM_ADDR_WIDTH-1:0] dma_write_block_ram_offset_reg = 0, dma_write_block_ram_offset_next;
+reg [RAM_ADDR_WIDTH-1:0] dma_write_block_ram_offset_mask_reg = 0, dma_write_block_ram_offset_mask_next;
+reg [RAM_ADDR_WIDTH-1:0] dma_write_block_ram_stride_reg = 0, dma_write_block_ram_stride_next;
 
 assign axil_csr_awready = axil_csr_awready_reg;
 assign axil_csr_wready = axil_csr_wready_reg;
@@ -310,7 +342,7 @@ assign m_axis_dma_write_desc_valid = dma_write_desc_valid_reg;
 
 assign dma_enable = dma_enable_reg;
 
-assign msi_irq[0] = s_axis_dma_read_desc_status_valid || s_axis_dma_write_desc_status_valid;
+assign msi_irq[0] = (s_axis_dma_read_desc_status_valid && dma_rd_int_en_reg) || (s_axis_dma_write_desc_status_valid && dma_wr_int_en_reg);
 assign msi_irq[31:1] = 31'd0;
 
 always @* begin
@@ -337,13 +369,42 @@ always @* begin
     dma_write_desc_ram_addr_next = dma_write_desc_ram_addr_reg;
     dma_write_desc_len_next = dma_write_desc_len_reg;
     dma_write_desc_tag_next = dma_write_desc_tag_reg;
-    dma_write_desc_valid_next = dma_write_desc_valid_reg && !m_axis_dma_read_desc_ready;
+    dma_write_desc_valid_next = dma_write_desc_valid_reg && !m_axis_dma_write_desc_ready;
 
     dma_write_desc_status_tag_next = dma_write_desc_status_tag_reg;
     dma_write_desc_status_error_next = dma_write_desc_status_error_reg;
     dma_write_desc_status_valid_next = dma_write_desc_status_valid_reg;
 
     dma_enable_next = dma_enable_reg;
+
+    dma_rd_int_en_next = dma_rd_int_en_reg;
+    dma_wr_int_en_next = dma_wr_int_en_reg;
+
+    dma_read_block_run_next = dma_read_block_run_reg;
+    dma_read_block_len_next = dma_read_block_len_reg;
+    dma_read_block_count_next = dma_read_block_count_reg;
+    dma_read_block_cycle_count_next = dma_read_block_cycle_count_reg;
+    dma_read_block_dma_base_addr_next = dma_read_block_dma_base_addr_reg;
+    dma_read_block_dma_offset_next = dma_read_block_dma_offset_reg;
+    dma_read_block_dma_offset_mask_next = dma_read_block_dma_offset_mask_reg;
+    dma_read_block_dma_stride_next = dma_read_block_dma_stride_reg;
+    dma_read_block_ram_base_addr_next = dma_read_block_ram_base_addr_reg;
+    dma_read_block_ram_offset_next = dma_read_block_ram_offset_reg;
+    dma_read_block_ram_offset_mask_next = dma_read_block_ram_offset_mask_reg;
+    dma_read_block_ram_stride_next = dma_read_block_ram_stride_reg;
+
+    dma_write_block_run_next = dma_write_block_run_reg;
+    dma_write_block_len_next = dma_write_block_len_reg;
+    dma_write_block_count_next = dma_write_block_count_reg;
+    dma_write_block_cycle_count_next = dma_write_block_cycle_count_reg;
+    dma_write_block_dma_base_addr_next = dma_write_block_dma_base_addr_reg;
+    dma_write_block_dma_offset_next = dma_write_block_dma_offset_reg;
+    dma_write_block_dma_offset_mask_next = dma_write_block_dma_offset_mask_reg;
+    dma_write_block_dma_stride_next = dma_write_block_dma_stride_reg;
+    dma_write_block_ram_base_addr_next = dma_write_block_ram_base_addr_reg;
+    dma_write_block_ram_offset_next = dma_write_block_ram_offset_reg;
+    dma_write_block_ram_offset_mask_next = dma_write_block_ram_offset_mask_reg;
+    dma_write_block_ram_stride_next = dma_write_block_ram_stride_reg;
 
     if (axil_csr_awvalid && axil_csr_wvalid && !axil_csr_bvalid_reg) begin
         // write operation
@@ -353,7 +414,15 @@ always @* begin
         axil_csr_bvalid_next = 1'b1;
 
         case ({axil_csr_awaddr[15:2], 2'b00})
-            16'h0000: dma_enable_next = axil_csr_wdata;
+            // control
+            16'h0000: begin
+                dma_enable_next = axil_csr_wdata[0];
+            end
+            16'h0008: begin
+                dma_rd_int_en_next = axil_csr_wdata[0];
+                dma_wr_int_en_next = axil_csr_wdata[1];
+            end
+            // single read
             16'h0100: dma_read_desc_dma_addr_next[31:0] = axil_csr_wdata;
             16'h0104: dma_read_desc_dma_addr_next[63:32] = axil_csr_wdata;
             16'h0108: dma_read_desc_ram_addr_next = axil_csr_wdata;
@@ -362,6 +431,7 @@ always @* begin
                 dma_read_desc_tag_next = axil_csr_wdata;
                 dma_read_desc_valid_next = 1'b1;
             end
+            // single write
             16'h0200: dma_write_desc_dma_addr_next[31:0] = axil_csr_wdata;
             16'h0204: dma_write_desc_dma_addr_next[63:32] = axil_csr_wdata;
             16'h0208: dma_write_desc_ram_addr_next = axil_csr_wdata;
@@ -370,6 +440,46 @@ always @* begin
                 dma_write_desc_tag_next = axil_csr_wdata;
                 dma_write_desc_valid_next = 1'b1;
             end
+            // block read
+            16'h1000: begin
+                dma_read_block_run_next = axil_csr_wdata[0];
+            end
+            16'h1008: dma_read_block_cycle_count_next[31:0] = axil_csr_wdata;
+            16'h100c: dma_read_block_cycle_count_next[63:32] = axil_csr_wdata;
+            16'h1010: dma_read_block_len_next = axil_csr_wdata;
+            16'h1018: dma_read_block_count_next[31:0] = axil_csr_wdata;
+            16'h1080: dma_read_block_dma_base_addr_next[31:0] = axil_csr_wdata;
+            16'h1084: dma_read_block_dma_base_addr_next[63:32] = axil_csr_wdata;
+            16'h1088: dma_read_block_dma_offset_next[31:0] = axil_csr_wdata;
+            16'h108c: dma_read_block_dma_offset_next[63:32] = axil_csr_wdata;
+            16'h1090: dma_read_block_dma_offset_mask_next[31:0] = axil_csr_wdata;
+            16'h1094: dma_read_block_dma_offset_mask_next[63:32] = axil_csr_wdata;
+            16'h1098: dma_read_block_dma_stride_next[31:0] = axil_csr_wdata;
+            16'h109c: dma_read_block_dma_stride_next[63:32] = axil_csr_wdata;
+            16'h10c0: dma_read_block_ram_base_addr_next = axil_csr_wdata;
+            16'h10c8: dma_read_block_ram_offset_next = axil_csr_wdata;
+            16'h10d0: dma_read_block_ram_offset_mask_next = axil_csr_wdata;
+            16'h10d8: dma_read_block_ram_stride_next = axil_csr_wdata;
+            // block write
+            16'h1100: begin
+                dma_write_block_run_next = axil_csr_wdata[0];
+            end
+            16'h1108: dma_write_block_cycle_count_next[31:0] = axil_csr_wdata;
+            16'h110c: dma_write_block_cycle_count_next[63:32] = axil_csr_wdata;
+            16'h1110: dma_write_block_len_next = axil_csr_wdata;
+            16'h1118: dma_write_block_count_next[31:0] = axil_csr_wdata;
+            16'h1180: dma_write_block_dma_base_addr_next[31:0] = axil_csr_wdata;
+            16'h1184: dma_write_block_dma_base_addr_next[63:32] = axil_csr_wdata;
+            16'h1188: dma_write_block_dma_offset_next[31:0] = axil_csr_wdata;
+            16'h118c: dma_write_block_dma_offset_next[63:32] = axil_csr_wdata;
+            16'h1190: dma_write_block_dma_offset_mask_next[31:0] = axil_csr_wdata;
+            16'h1194: dma_write_block_dma_offset_mask_next[63:32] = axil_csr_wdata;
+            16'h1198: dma_write_block_dma_stride_next[31:0] = axil_csr_wdata;
+            16'h119c: dma_write_block_dma_stride_next[63:32] = axil_csr_wdata;
+            16'h11c0: dma_write_block_ram_base_addr_next = axil_csr_wdata;
+            16'h11c8: dma_write_block_ram_offset_next = axil_csr_wdata;
+            16'h11d0: dma_write_block_ram_offset_mask_next = axil_csr_wdata;
+            16'h11d8: dma_write_block_ram_stride_next = axil_csr_wdata;
         endcase
     end
 
@@ -380,32 +490,153 @@ always @* begin
         axil_csr_rvalid_next = 1'b1;
 
         case ({axil_csr_araddr[15:2], 2'b00})
-            16'h0000: axil_csr_rdata_next = dma_enable_reg;
+            // control
+            16'h0000: begin
+                axil_csr_rdata_next[0] = dma_enable_reg;
+            end
+            16'h0008: begin
+                axil_csr_rdata_next[0] = dma_rd_int_en_reg;
+                axil_csr_rdata_next[1] = dma_wr_int_en_reg;
+            end
+            16'h0010: axil_csr_rdata_next = cycle_count_reg;
+            16'h0014: axil_csr_rdata_next = cycle_count_reg >> 32;
+            16'h0020: axil_csr_rdata_next = dma_read_active_count_reg;
+            16'h0028: axil_csr_rdata_next = dma_write_active_count_reg;
+            // single read
+            16'h0100: axil_csr_rdata_next = dma_read_desc_dma_addr_reg;
+            16'h0104: axil_csr_rdata_next = dma_read_desc_dma_addr_reg >> 32;
+            16'h0108: axil_csr_rdata_next = dma_read_desc_ram_addr_reg;
+            16'h010c: axil_csr_rdata_next = dma_read_desc_ram_addr_reg >> 32;
+            16'h0110: axil_csr_rdata_next = dma_read_desc_len_reg;
+            16'h0114: axil_csr_rdata_next = dma_read_desc_tag_reg;
             16'h0118: begin
-                axil_csr_rdata_next[7:0] = dma_read_desc_status_tag_reg;
-                axil_csr_rdata_next[15:8] = dma_read_desc_status_error_reg;
+                axil_csr_rdata_next[15:0] = dma_read_desc_status_tag_reg;
+                axil_csr_rdata_next[27:24] = dma_read_desc_status_error_reg;
                 axil_csr_rdata_next[31] = dma_read_desc_status_valid_reg;
                 dma_read_desc_status_valid_next = 1'b0;
             end
+            // single write
+            16'h0200: axil_csr_rdata_next = dma_write_desc_dma_addr_reg;
+            16'h0204: axil_csr_rdata_next = dma_write_desc_dma_addr_reg >> 32;
+            16'h0208: axil_csr_rdata_next = dma_write_desc_ram_addr_reg;
+            16'h020c: axil_csr_rdata_next = dma_write_desc_ram_addr_reg >> 32;
+            16'h0210: axil_csr_rdata_next = dma_write_desc_len_reg;
+            16'h0214: axil_csr_rdata_next = dma_write_desc_tag_reg;
             16'h0218: begin
-                axil_csr_rdata_next[7:0] = dma_write_desc_status_tag_reg;
-                axil_csr_rdata_next[15:8] = dma_write_desc_status_error_reg;
+                axil_csr_rdata_next[15:0] = dma_write_desc_status_tag_reg;
+                axil_csr_rdata_next[27:24] = dma_write_desc_status_error_reg;
                 axil_csr_rdata_next[31] = dma_write_desc_status_valid_reg;
                 dma_write_desc_status_valid_next = 1'b0;
             end
+            // block read
+            16'h1000: begin
+                axil_csr_rdata_next[0] = dma_read_block_run_reg;
+            end
+            16'h1008: axil_csr_rdata_next = dma_read_block_cycle_count_reg;
+            16'h100c: axil_csr_rdata_next = dma_read_block_cycle_count_reg >> 32;
+            16'h1010: axil_csr_rdata_next = dma_read_block_len_reg;
+            16'h1018: axil_csr_rdata_next = dma_read_block_count_reg;
+            16'h101c: axil_csr_rdata_next = dma_read_block_count_reg >> 32;
+            16'h1080: axil_csr_rdata_next = dma_read_block_dma_base_addr_reg;
+            16'h1084: axil_csr_rdata_next = dma_read_block_dma_base_addr_reg >> 32;
+            16'h1088: axil_csr_rdata_next = dma_read_block_dma_offset_reg;
+            16'h108c: axil_csr_rdata_next = dma_read_block_dma_offset_reg >> 32;
+            16'h1090: axil_csr_rdata_next = dma_read_block_dma_offset_mask_reg;
+            16'h1094: axil_csr_rdata_next = dma_read_block_dma_offset_mask_reg >> 32;
+            16'h1098: axil_csr_rdata_next = dma_read_block_dma_stride_reg;
+            16'h109c: axil_csr_rdata_next = dma_read_block_dma_stride_reg >> 32;
+            16'h10c0: axil_csr_rdata_next = dma_read_block_ram_base_addr_reg;
+            16'h10c4: axil_csr_rdata_next = dma_read_block_ram_base_addr_reg >> 32;
+            16'h10c8: axil_csr_rdata_next = dma_read_block_ram_offset_reg;
+            16'h10cc: axil_csr_rdata_next = dma_read_block_ram_offset_reg >> 32;
+            16'h10d0: axil_csr_rdata_next = dma_read_block_ram_offset_mask_reg;
+            16'h10d4: axil_csr_rdata_next = dma_read_block_ram_offset_mask_reg >> 32;
+            16'h10d8: axil_csr_rdata_next = dma_read_block_ram_stride_reg;
+            16'h10dc: axil_csr_rdata_next = dma_read_block_ram_stride_reg >> 32;
+            // block write
+            16'h1100: begin
+                axil_csr_rdata_next[0] = dma_write_block_run_reg;
+            end
+            16'h1108: axil_csr_rdata_next = dma_write_block_cycle_count_reg;
+            16'h110c: axil_csr_rdata_next = dma_write_block_cycle_count_reg >> 32;
+            16'h1110: axil_csr_rdata_next = dma_write_block_len_reg;
+            16'h1118: axil_csr_rdata_next = dma_write_block_count_reg;
+            16'h111c: axil_csr_rdata_next = dma_write_block_count_reg >> 32;
+            16'h1180: axil_csr_rdata_next = dma_write_block_dma_base_addr_reg;
+            16'h1184: axil_csr_rdata_next = dma_write_block_dma_base_addr_reg >> 32;
+            16'h1188: axil_csr_rdata_next = dma_write_block_dma_offset_reg;
+            16'h118c: axil_csr_rdata_next = dma_write_block_dma_offset_reg >> 32;
+            16'h1190: axil_csr_rdata_next = dma_write_block_dma_offset_mask_reg;
+            16'h1194: axil_csr_rdata_next = dma_write_block_dma_offset_mask_reg >> 32;
+            16'h1198: axil_csr_rdata_next = dma_write_block_dma_stride_reg;
+            16'h119c: axil_csr_rdata_next = dma_write_block_dma_stride_reg >> 32;
+            16'h11c0: axil_csr_rdata_next = dma_write_block_ram_base_addr_reg;
+            16'h11c4: axil_csr_rdata_next = dma_write_block_ram_base_addr_reg >> 32;
+            16'h11c8: axil_csr_rdata_next = dma_write_block_ram_offset_reg;
+            16'h11cc: axil_csr_rdata_next = dma_write_block_ram_offset_reg >> 32;
+            16'h11d0: axil_csr_rdata_next = dma_write_block_ram_offset_mask_reg;
+            16'h11d4: axil_csr_rdata_next = dma_write_block_ram_offset_mask_reg >> 32;
+            16'h11d8: axil_csr_rdata_next = dma_write_block_ram_stride_reg;
+            16'h11dc: axil_csr_rdata_next = dma_write_block_ram_stride_reg >> 32;
         endcase
     end
 
+    // store read response
     if (s_axis_dma_read_desc_status_valid) begin
         dma_read_desc_status_tag_next = s_axis_dma_read_desc_status_tag;
         dma_read_desc_status_error_next = s_axis_dma_read_desc_status_error;
         dma_read_desc_status_valid_next = s_axis_dma_read_desc_status_valid;
     end
 
+    // store write response
     if (s_axis_dma_write_desc_status_valid) begin
         dma_write_desc_status_tag_next = s_axis_dma_write_desc_status_tag;
         dma_write_desc_status_error_next = s_axis_dma_write_desc_status_error;
         dma_write_desc_status_valid_next = s_axis_dma_write_desc_status_valid;
+    end
+
+    // block read
+    if (dma_read_block_run_reg) begin
+        dma_read_block_cycle_count_next = dma_read_block_cycle_count_reg + 1;
+
+        if (dma_read_block_count_reg == 0) begin
+            if (dma_read_active_count_reg == 0) begin
+                dma_read_block_run_next = 1'b0;
+            end
+        end else begin
+            if (!dma_read_desc_valid_reg || m_axis_dma_read_desc_ready) begin
+                dma_read_block_dma_offset_next = dma_read_block_dma_offset_reg + dma_read_block_dma_stride_reg;
+                dma_read_desc_dma_addr_next = dma_read_block_dma_base_addr_reg + (dma_read_block_dma_offset_reg & dma_read_block_dma_offset_mask_reg);
+                dma_read_block_ram_offset_next = dma_read_block_ram_offset_reg + dma_read_block_ram_stride_reg;
+                dma_read_desc_ram_addr_next = dma_read_block_ram_base_addr_reg + (dma_read_block_ram_offset_reg & dma_read_block_ram_offset_mask_reg);
+                dma_read_desc_len_next = dma_read_block_len_reg;
+                dma_read_block_count_next = dma_read_block_count_reg - 1;
+                dma_read_desc_tag_next = dma_read_block_count_reg;
+                dma_read_desc_valid_next = 1'b1;
+            end
+        end
+    end
+
+    // block write
+    if (dma_write_block_run_reg) begin
+        dma_write_block_cycle_count_next = dma_write_block_cycle_count_reg + 1;
+
+        if (dma_write_block_count_reg == 0) begin
+            if (dma_write_active_count_reg == 0) begin
+                dma_write_block_run_next = 1'b0;
+            end
+        end else begin
+            if (!dma_write_desc_valid_reg || m_axis_dma_write_desc_ready) begin
+                dma_write_block_dma_offset_next = dma_write_block_dma_offset_reg + dma_write_block_dma_stride_reg;
+                dma_write_desc_dma_addr_next = dma_write_block_dma_base_addr_reg + (dma_write_block_dma_offset_reg & dma_write_block_dma_offset_mask_reg);
+                dma_write_block_ram_offset_next = dma_write_block_ram_offset_reg + dma_write_block_ram_stride_reg;
+                dma_write_desc_ram_addr_next = dma_write_block_ram_base_addr_reg + (dma_write_block_ram_offset_reg & dma_write_block_ram_offset_mask_reg);
+                dma_write_desc_len_next = dma_write_block_len_reg;
+                dma_write_block_count_next = dma_write_block_count_reg - 1;
+                dma_write_desc_tag_next = dma_write_block_count_reg;
+                dma_write_desc_valid_next = 1'b1;
+            end
+        end
     end
 end
 
@@ -418,6 +649,15 @@ always @(posedge clk) begin
     axil_csr_rdata_reg <= axil_csr_rdata_next;
     axil_csr_rresp_reg <= axil_csr_rresp_next;
     axil_csr_rvalid_reg <= axil_csr_rvalid_next;
+
+    cycle_count_reg <= cycle_count_reg + 1;
+
+    dma_read_active_count_reg <= dma_read_active_count_reg
+        + (m_axis_dma_read_desc_valid && m_axis_dma_read_desc_ready)
+        - s_axis_dma_read_desc_status_valid;
+    dma_write_active_count_reg <= dma_write_active_count_reg
+        + (m_axis_dma_write_desc_valid && m_axis_dma_write_desc_ready)
+        - s_axis_dma_write_desc_status_valid;
 
     dma_read_desc_dma_addr_reg <= dma_read_desc_dma_addr_next;
     dma_read_desc_ram_addr_reg <= dma_read_desc_ram_addr_next;
@@ -441,6 +681,35 @@ always @(posedge clk) begin
 
     dma_enable_reg <= dma_enable_next;
 
+    dma_rd_int_en_reg <= dma_rd_int_en_next;
+    dma_wr_int_en_reg <= dma_wr_int_en_next;
+
+    dma_read_block_run_reg <= dma_read_block_run_next;
+    dma_read_block_len_reg <= dma_read_block_len_next;
+    dma_read_block_count_reg <= dma_read_block_count_next;
+    dma_read_block_cycle_count_reg <= dma_read_block_cycle_count_next;
+    dma_read_block_dma_base_addr_reg <= dma_read_block_dma_base_addr_next;
+    dma_read_block_dma_offset_reg <= dma_read_block_dma_offset_next;
+    dma_read_block_dma_offset_mask_reg <= dma_read_block_dma_offset_mask_next;
+    dma_read_block_dma_stride_reg <= dma_read_block_dma_stride_next;
+    dma_read_block_ram_base_addr_reg <= dma_read_block_ram_base_addr_next;
+    dma_read_block_ram_offset_reg <= dma_read_block_ram_offset_next;
+    dma_read_block_ram_offset_mask_reg <= dma_read_block_ram_offset_mask_next;
+    dma_read_block_ram_stride_reg <= dma_read_block_ram_stride_next;
+
+    dma_write_block_run_reg <= dma_write_block_run_next;
+    dma_write_block_len_reg <= dma_write_block_len_next;
+    dma_write_block_count_reg <= dma_write_block_count_next;
+    dma_write_block_cycle_count_reg <= dma_write_block_cycle_count_next;
+    dma_write_block_dma_base_addr_reg <= dma_write_block_dma_base_addr_next;
+    dma_write_block_dma_offset_reg <= dma_write_block_dma_offset_next;
+    dma_write_block_dma_offset_mask_reg <= dma_write_block_dma_offset_mask_next;
+    dma_write_block_dma_stride_reg <= dma_write_block_dma_stride_next;
+    dma_write_block_ram_base_addr_reg <= dma_write_block_ram_base_addr_next;
+    dma_write_block_ram_offset_reg <= dma_write_block_ram_offset_next;
+    dma_write_block_ram_offset_mask_reg <= dma_write_block_ram_offset_mask_next;
+    dma_write_block_ram_stride_reg <= dma_write_block_ram_stride_next;
+
     if (rst) begin
         axil_csr_awready_reg <= 1'b0;
         axil_csr_wready_reg <= 1'b0;
@@ -448,11 +717,19 @@ always @(posedge clk) begin
         axil_csr_arready_reg <= 1'b0;
         axil_csr_rvalid_reg <= 1'b0;
 
+        cycle_count_reg <= 0;
+        dma_read_active_count_reg <= 0;
+        dma_write_active_count_reg <= 0;
+
         dma_read_desc_valid_reg <= 1'b0;
         dma_read_desc_status_valid_reg <= 1'b0;
         dma_write_desc_valid_reg <= 1'b0;
         dma_write_desc_status_valid_reg <= 1'b0;
         dma_enable_reg <= 1'b0;
+        dma_rd_int_en_reg <= 1'b0;
+        dma_wr_int_en_reg <= 1'b0;
+        dma_read_block_run_reg <= 1'b0;
+        dma_write_block_run_reg <= 1'b0;
     end
 end
 

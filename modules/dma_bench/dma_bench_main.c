@@ -99,7 +99,7 @@ static void print_counters(struct dma_bench_dev *dma_bench_dev)
     }
 }
 
-static void dma_read(struct dma_bench_dev *dma_bench_dev, dma_addr_t dma_addr, int ram_addr, int len)
+static void dma_read(struct dma_bench_dev *dma_bench_dev, dma_addr_t dma_addr, size_t ram_addr, size_t len)
 {
     int tag = 0;
     int new_tag = 0;
@@ -125,7 +125,7 @@ static void dma_read(struct dma_bench_dev *dma_bench_dev, dma_addr_t dma_addr, i
         dev_warn(dma_bench_dev->dev, "dma_read: DMA read received tag %d (expected %d)", new_tag, tag);
 }
 
-static void dma_write(struct dma_bench_dev *dma_bench_dev, dma_addr_t dma_addr, int ram_addr, int len)
+static void dma_write(struct dma_bench_dev *dma_bench_dev, dma_addr_t dma_addr, size_t ram_addr, size_t len)
 {
     int tag = 0;
     int new_tag = 0;
@@ -151,6 +151,108 @@ static void dma_write(struct dma_bench_dev *dma_bench_dev, dma_addr_t dma_addr, 
         dev_warn(dma_bench_dev->dev, "dma_write: DMA write received tag %d (expected %d)", new_tag, tag);
 }
 
+static void dma_block_read(struct dma_bench_dev *dma_bench_dev,
+    dma_addr_t dma_addr, size_t dma_offset, size_t dma_offset_mask, size_t dma_stride,
+    size_t ram_addr, size_t ram_offset, size_t ram_offset_mask, size_t ram_stride,
+    size_t block_len, size_t block_count)
+{
+    unsigned long t;
+
+    // DMA base address
+    iowrite32(dma_addr&0xffffffff, dma_bench_dev->hw_addr+0x001080);
+    iowrite32((dma_addr >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x001084);
+    // DMA offset address
+    iowrite32(dma_offset&0xffffffff, dma_bench_dev->hw_addr+0x001088);
+    iowrite32((dma_offset >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x00108c);
+    // DMA offset mask
+    iowrite32(dma_offset_mask&0xffffffff, dma_bench_dev->hw_addr+0x001090);
+    iowrite32((dma_offset_mask >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x001094);
+    // DMA stride
+    iowrite32(dma_stride&0xffffffff, dma_bench_dev->hw_addr+0x001098);
+    iowrite32((dma_stride >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x00109c);
+    // RAM base address
+    iowrite32(ram_addr&0xffffffff, dma_bench_dev->hw_addr+0x0010c0);
+    iowrite32((ram_addr >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x0010c4);
+    // RAM offset address
+    iowrite32(ram_offset&0xffffffff, dma_bench_dev->hw_addr+0x0010c8);
+    iowrite32((ram_offset >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x0010cc);
+    // RAM offset mask
+    iowrite32(ram_offset_mask&0xffffffff, dma_bench_dev->hw_addr+0x0010d0);
+    iowrite32((ram_offset_mask >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x0010d4);
+    // RAM stride
+    iowrite32(ram_stride&0xffffffff, dma_bench_dev->hw_addr+0x0010d8);
+    iowrite32((ram_stride >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x0010dc);
+    // clear cycle count
+    iowrite32(0, dma_bench_dev->hw_addr+0x001008);
+    iowrite32(0, dma_bench_dev->hw_addr+0x00100c);
+    // block length
+    iowrite32(block_len, dma_bench_dev->hw_addr+0x001010);
+    // block count
+    iowrite32(block_count, dma_bench_dev->hw_addr+0x001018);
+    // start
+    iowrite32(1, dma_bench_dev->hw_addr+0x001000);
+
+    // wait for transfer to complete
+    t = jiffies + msecs_to_jiffies(20000);
+    while (time_before(jiffies, t)) {
+        if ((ioread32(dma_bench_dev->hw_addr+0x001000) & 1) == 0) break;
+    }
+
+    if ((ioread32(dma_bench_dev->hw_addr+0x001000) & 1) != 0)
+        dev_warn(dma_bench_dev->dev, "dma_block_read: operation timed out");
+}
+
+static void dma_block_write(struct dma_bench_dev *dma_bench_dev,
+    dma_addr_t dma_addr, size_t dma_offset, size_t dma_offset_mask, size_t dma_stride,
+    size_t ram_addr, size_t ram_offset, size_t ram_offset_mask, size_t ram_stride,
+    size_t block_len, size_t block_count)
+{
+    unsigned long t;
+
+    // DMA base address
+    iowrite32(dma_addr&0xffffffff, dma_bench_dev->hw_addr+0x001180);
+    iowrite32((dma_addr >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x001184);
+    // DMA offset address
+    iowrite32(dma_offset&0xffffffff, dma_bench_dev->hw_addr+0x001188);
+    iowrite32((dma_offset >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x00118c);
+    // DMA offset mask
+    iowrite32(dma_offset_mask&0xffffffff, dma_bench_dev->hw_addr+0x001190);
+    iowrite32((dma_offset_mask >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x001194);
+    // DMA stride
+    iowrite32(dma_stride&0xffffffff, dma_bench_dev->hw_addr+0x001198);
+    iowrite32((dma_stride >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x00119c);
+    // RAM base address
+    iowrite32(ram_addr&0xffffffff, dma_bench_dev->hw_addr+0x0011c0);
+    iowrite32((ram_addr >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x0011c4);
+    // RAM offset address
+    iowrite32(ram_offset&0xffffffff, dma_bench_dev->hw_addr+0x0011c8);
+    iowrite32((ram_offset >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x0011cc);
+    // RAM offset mask
+    iowrite32(ram_offset_mask&0xffffffff, dma_bench_dev->hw_addr+0x0011d0);
+    iowrite32((ram_offset_mask >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x0011d4);
+    // RAM stride
+    iowrite32(ram_stride&0xffffffff, dma_bench_dev->hw_addr+0x0011d8);
+    iowrite32((ram_stride >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x0011dc);
+    // clear cycle count
+    iowrite32(0, dma_bench_dev->hw_addr+0x001108);
+    iowrite32(0, dma_bench_dev->hw_addr+0x00110c);
+    // block length
+    iowrite32(block_len, dma_bench_dev->hw_addr+0x001110);
+    // block count
+    iowrite32(block_count, dma_bench_dev->hw_addr+0x001118);
+    // start
+    iowrite32(1, dma_bench_dev->hw_addr+0x001100);
+
+    // wait for transfer to complete
+    t = jiffies + msecs_to_jiffies(20000);
+    while (time_before(jiffies, t)) {
+        if ((ioread32(dma_bench_dev->hw_addr+0x001100) & 1) == 0) break;
+    }
+
+    if ((ioread32(dma_bench_dev->hw_addr+0x001100) & 1) != 0)
+        dev_warn(dma_bench_dev->dev, "dma_block_write: operation timed out");
+}
+
 static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
     int ret = 0;
@@ -158,6 +260,7 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
     struct device *dev = &pdev->dev;
 
     int k;
+    int mismatch = 0;
 
     dev_info(dev, "DMA bench probe");
     dev_info(dev, " vendor: 0x%04x", pdev->vendor);
@@ -297,6 +400,15 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
     else
     {
         dev_warn(dev, "test data mismatch");
+        mismatch = 1;
+    }
+
+    if (!mismatch)
+    {
+        dev_info(dev, "perform block read");
+        dma_block_read(dma_bench_dev, dma_bench_dev->dma_region_addr+0x0000, 0, 0xfff, 256, 0, 0, 0xfff, 256, 256, 32);
+        dev_info(dev, "perform block write");
+        dma_block_write(dma_bench_dev, dma_bench_dev->dma_region_addr+0x0000, 0, 0xfff, 256, 0, 0, 0xfff, 256, 256, 32);
     }
 
     // Dump counters

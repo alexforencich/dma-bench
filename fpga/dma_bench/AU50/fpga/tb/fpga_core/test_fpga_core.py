@@ -262,6 +262,8 @@ async def run_test(dut):
 
     # enable DMA
     await tb.rc.mem_write_dword(dev_pf0_bar0+0x000000, 1)
+    # enable interrupts
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x000008, 0x3)
 
     # write pcie read descriptor
     await tb.rc.mem_write_dword(dev_pf0_bar0+0x000100, (mem_base+0x0000) & 0xffffffff)
@@ -296,6 +298,90 @@ async def run_test(dut):
     tb.log.info("%s", hexdump_str(mem_data, 0x1000, 64))
 
     assert mem_data[0:1024] == mem_data[0x1000:0x1000+1024]
+
+    tb.log.info("Test DMA block operations")
+
+    # write packet data
+    mem_data[0:1024] = bytearray([x % 256 for x in range(1024)])
+
+    # enable DMA
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x000000, 1)
+    # disable interrupts
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x000008, 0)
+
+    # configure operation (read)
+    # DMA base address
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001080, (mem_base+0x0000) & 0xffffffff)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001084, (mem_base+0x0000 >> 32) & 0xffffffff)
+    # DMA offset address
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001088, 0)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x00108c, 0)
+    # DMA offset mask
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001090, 0x000003ff)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001094, 0)
+    # DMA stride
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001098, 256)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x00109c, 0)
+    # RAM base address
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x0010c0, 0)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x0010c4, 0)
+    # RAM offset address
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x0010c8, 0)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x0010cc, 0)
+    # RAM offset mask
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x0010d0, 0x000003ff)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x0010d4, 0)
+    # RAM stride
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x0010d8, 256)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x0010dc, 0)
+    # clear cycle count
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001008, 0)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x00100c, 0)
+    # block length
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001010, 256)
+    # block count
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001018, 32)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x00101c, 0)
+    # start
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001000, 1)
+
+    await Timer(2000, 'ns')
+
+    # configure operation (write)
+    # DMA base address
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001180, (mem_base+0x0000) & 0xffffffff)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001184, (mem_base+0x0000 >> 32) & 0xffffffff)
+    # DMA offset address
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001188, 0)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x00118c, 0)
+    # DMA offset mask
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001190, 0x000003ff)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001194, 0)
+    # DMA stride
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001198, 256)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x00119c, 0)
+    # RAM base address
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x0011c0, 0)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x0011c4, 0)
+    # RAM offset address
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x0011c8, 0)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x0011cc, 0)
+    # RAM offset mask
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x0011d0, 0x000003ff)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x0011d4, 0)
+    # RAM stride
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x0011d8, 256)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x0011dc, 0)
+    # clear cycle count
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001108, 0)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x00110c, 0)
+    # block length
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001110, 256)
+    # block count
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001118, 32)
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x00111c, 0)
+    # start
+    await tb.rc.mem_write_dword(dev_pf0_bar0+0x001100, 1)
 
     tb.log.info("Read statistics counters")
 
