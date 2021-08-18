@@ -99,6 +99,58 @@ static void print_counters(struct dma_bench_dev *dma_bench_dev)
     }
 }
 
+static void dma_read(struct dma_bench_dev *dma_bench_dev, dma_addr_t dma_addr, int ram_addr, int len)
+{
+    int tag = 0;
+    int new_tag = 0;
+    unsigned long t;
+
+    tag = ioread32(dma_bench_dev->hw_addr+0x000118); // dummy read
+    tag = (ioread32(dma_bench_dev->hw_addr+0x000118) & 0x7f) + 1;
+    iowrite32(dma_addr&0xffffffff, dma_bench_dev->hw_addr+0x000100);
+    iowrite32((dma_addr >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x000104);
+    iowrite32(ram_addr, dma_bench_dev->hw_addr+0x000108);
+    iowrite32(0, dma_bench_dev->hw_addr+0x00010C);
+    iowrite32(len, dma_bench_dev->hw_addr+0x000110);
+    iowrite32(tag, dma_bench_dev->hw_addr+0x000114);
+
+    // wait for transfer to complete
+    t = jiffies + msecs_to_jiffies(200);
+    while (time_before(jiffies, t)){
+        new_tag = (ioread32(dma_bench_dev->hw_addr+0x000118) & 0xff);
+        if (new_tag==tag) break;
+    }
+
+    if (tag != new_tag)
+        dev_warn(dma_bench_dev->dev, "dma_read: DMA read received tag %d (expected %d)", new_tag, tag);
+}
+
+static void dma_write(struct dma_bench_dev *dma_bench_dev, dma_addr_t dma_addr, int ram_addr, int len)
+{
+    int tag = 0;
+    int new_tag = 0;
+    unsigned long t;
+
+    tag = ioread32(dma_bench_dev->hw_addr+0x000218); // dummy read
+    tag = (ioread32(dma_bench_dev->hw_addr+0x000218) & 0x7f) + 1;
+    iowrite32(dma_addr&0xffffffff, dma_bench_dev->hw_addr+0x000200);
+    iowrite32((dma_addr >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x000204);
+    iowrite32(ram_addr, dma_bench_dev->hw_addr+0x000208);
+    iowrite32(0, dma_bench_dev->hw_addr+0x00020C);
+    iowrite32(len, dma_bench_dev->hw_addr+0x000210);
+    iowrite32(tag, dma_bench_dev->hw_addr+0x000214);
+
+    // wait for transfer to complete
+    t = jiffies + msecs_to_jiffies(200);
+    while (time_before(jiffies, t)){
+        new_tag = (ioread32(dma_bench_dev->hw_addr+0x000218) & 0xff);
+        if (new_tag==tag) break;
+    }
+
+    if (tag != new_tag)
+        dev_warn(dma_bench_dev->dev, "dma_write: DMA write received tag %d (expected %d)", new_tag, tag);
+}
+
 static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
     int ret = 0;
@@ -230,33 +282,22 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
     dev_info(dev, "%08x", ioread32(dma_bench_dev->hw_addr+0x000000));
 
     dev_info(dev, "start copy to card");
-    iowrite32((dma_bench_dev->dma_region_addr+0x0000)&0xffffffff, dma_bench_dev->hw_addr+0x000100);
-    iowrite32(((dma_bench_dev->dma_region_addr+0x0000) >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x000104);
-    iowrite32(0x100, dma_bench_dev->hw_addr+0x000108);
-    iowrite32(0, dma_bench_dev->hw_addr+0x00010C);
-    iowrite32(0x100, dma_bench_dev->hw_addr+0x000110);
-    iowrite32(0xAA, dma_bench_dev->hw_addr+0x000114);
-
-    msleep(1);
-
-    dev_info(dev, "Read status");
-    dev_info(dev, "%08x", ioread32(dma_bench_dev->hw_addr+0x000118));
+    dma_read(dma_bench_dev, dma_bench_dev->dma_region_addr+0x0000, 0x100, 0x100);
 
     dev_info(dev, "start copy to host");
-    iowrite32((dma_bench_dev->dma_region_addr+0x0200)&0xffffffff, dma_bench_dev->hw_addr+0x000200);
-    iowrite32(((dma_bench_dev->dma_region_addr+0x0200) >> 32)&0xffffffff, dma_bench_dev->hw_addr+0x000204);
-    iowrite32(0x100, dma_bench_dev->hw_addr+0x000208);
-    iowrite32(0, dma_bench_dev->hw_addr+0x00020C);
-    iowrite32(0x100, dma_bench_dev->hw_addr+0x000210);
-    iowrite32(0x55, dma_bench_dev->hw_addr+0x000214);
-
-    msleep(1);
-
-    dev_info(dev, "Read status");
-    dev_info(dev, "%08x", ioread32(dma_bench_dev->hw_addr+0x000218));
+    dma_write(dma_bench_dev, dma_bench_dev->dma_region_addr+0x0200, 0x100, 0x100);
 
     dev_info(dev, "read test data");
     print_hex_dump(KERN_INFO, "", DUMP_PREFIX_NONE, 16, 1, dma_bench_dev->dma_region+0x0200, 256, true);
+
+    if (memcmp(dma_bench_dev->dma_region+0x0000, dma_bench_dev->dma_region+0x0200, 256) == 0)
+    {
+        dev_info(dev, "test data matches");
+    }
+    else
+    {
+        dev_warn(dev, "test data mismatch");
+    }
 
     // Dump counters
     dev_info(dev, "Statistics counters");
