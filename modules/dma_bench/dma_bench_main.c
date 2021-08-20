@@ -407,8 +407,10 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
     {
         u64 cycles;
         u64 size;
+        struct page *page;
+        dma_addr_t dma_addr;
 
-        dev_info(dev, "perform block reads");
+        dev_info(dev, "perform block reads (dma_alloc_coherent)");
 
         for (size = 1; size <= 8192; size *= 2)
         {
@@ -419,7 +421,7 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
             dev_info(dev, "read 10000 blocks of %lld bytes in %lld cycles (%lld ns): %lld Mbps", size, cycles, cycles*4, size*10000*8*1000/(cycles*4));
         }
 
-        dev_info(dev, "perform block writes");
+        dev_info(dev, "perform block writes (dma_alloc_coherent)");
 
         for (size = 1; size <= 8192; size *= 2)
         {
@@ -428,6 +430,64 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
             cycles = ioread32(dma_bench_dev->hw_addr+0x001108);
 
             dev_info(dev, "wrote 10000 blocks of %lld bytes in %lld cycles (%lld ns): %lld Mbps", size, cycles, cycles*4, size*10000*8*1000/(cycles*4));
+        }
+
+        page = alloc_pages_node(NUMA_NO_NODE, GFP_ATOMIC | __GFP_NOWARN | __GFP_COMP | __GFP_MEMALLOC, 2);
+
+        if (page)
+        {
+            dma_addr = dma_map_page(dev, page, 0, 4096*(1 << 2), PCI_DMA_TODEVICE);
+
+            if (!dma_mapping_error(dev, dma_addr))
+            {
+                dev_info(dev, "perform block reads (alloc_pages_node)");
+
+                for (size = 1; size <= 8192; size *= 2)
+                {
+                    dma_block_read(dma_bench_dev, dma_addr, 0, 0x3fff, size, 0, 0, 0x3fff, size, size, 10000);
+
+                    cycles = ioread32(dma_bench_dev->hw_addr+0x001008);
+
+                    dev_info(dev, "read 10000 blocks of %lld bytes in %lld cycles (%lld ns): %lld Mbps", size, cycles, cycles*4, size*10000*8*1000/(cycles*4));
+                }
+
+                dma_unmap_page(dev, dma_addr, 4096*(1 << 2), PCI_DMA_TODEVICE);
+            }
+            else
+            {
+                dev_warn(dev, "DMA mapping error");
+            }
+
+            dma_addr = dma_map_page(dev, page, 0, 4096*(1 << 2), PCI_DMA_FROMDEVICE);
+
+            if (!dma_mapping_error(dev, dma_addr))
+            {
+                dev_info(dev, "perform block writes (alloc_pages_node)");
+
+                for (size = 1; size <= 8192; size *= 2)
+                {
+                    dma_block_write(dma_bench_dev, dma_addr+0x0000, 0, 0x3fff, size, 0, 0, 0x3fff, size, size, 10000);
+
+                    cycles = ioread32(dma_bench_dev->hw_addr+0x001108);
+
+                    dev_info(dev, "wrote 10000 blocks of %lld bytes in %lld cycles (%lld ns): %lld Mbps", size, cycles, cycles*4, size*10000*8*1000/(cycles*4));
+                }
+
+                dma_unmap_page(dev, dma_addr, 4096*(1 << 2), PCI_DMA_FROMDEVICE);
+            }
+            else
+            {
+                dev_warn(dev, "DMA mapping error");
+            }
+        }
+
+        if (page)
+        {
+            __free_pages(page, 2);
+        }
+        else
+        {
+            dev_warn(dev, "failed to allocate memory");
         }
     }
 
