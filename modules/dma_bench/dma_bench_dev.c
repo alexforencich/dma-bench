@@ -25,6 +25,8 @@ THE SOFTWARE.
 #include "dma_bench.h"
 #include "dma_bench_ioctl.h"
 
+#include <linux/uaccess.h>
+
 static int dma_bench_open(struct inode *inode, struct file *file)
 {
     // struct miscdevice *miscdev = file->private_data;
