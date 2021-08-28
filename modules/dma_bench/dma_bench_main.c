@@ -407,6 +407,7 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
     {
         u64 cycles;
         u64 size;
+        u64 stride;
         struct page *page;
         dma_addr_t dma_addr;
 
@@ -414,22 +415,28 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 
         for (size = 1; size <= 8192; size *= 2)
         {
-            dma_block_read(dma_bench_dev, dma_bench_dev->dma_region_addr+0x0000, 0, 0x3fff, size, 0, 0, 0x3fff, size, size, 10000);
+            for (stride = size; stride <= max(size, 256llu); stride *= 2)
+            {
+                dma_block_read(dma_bench_dev, dma_bench_dev->dma_region_addr+0x0000, 0, 0x3fff, stride, 0, 0, 0x3fff, stride, size, 10000);
 
-            cycles = ioread32(dma_bench_dev->hw_addr+0x001008);
+                cycles = ioread32(dma_bench_dev->hw_addr+0x001008);
 
-            dev_info(dev, "read 10000 blocks of %lld bytes in %lld cycles (%lld ns): %lld Mbps", size, cycles, cycles*4, size*10000*8*1000/(cycles*4));
+                dev_info(dev, "read 10000 blocks of %lld bytes (stride %lld) in %lld cycles (%lld ns): %lld Mbps", size, stride, cycles, cycles*4, size*10000*8*1000/(cycles*4));
+            }
         }
 
         dev_info(dev, "perform block writes (dma_alloc_coherent)");
 
         for (size = 1; size <= 8192; size *= 2)
         {
-            dma_block_write(dma_bench_dev, dma_bench_dev->dma_region_addr+0x0000, 0, 0x3fff, size, 0, 0, 0x3fff, size, size, 10000);
+            for (stride = size; stride <= max(size, 256llu); stride *= 2)
+            {
+                dma_block_write(dma_bench_dev, dma_bench_dev->dma_region_addr+0x0000, 0, 0x3fff, stride, 0, 0, 0x3fff, stride, size, 10000);
 
-            cycles = ioread32(dma_bench_dev->hw_addr+0x001108);
+                cycles = ioread32(dma_bench_dev->hw_addr+0x001108);
 
-            dev_info(dev, "wrote 10000 blocks of %lld bytes in %lld cycles (%lld ns): %lld Mbps", size, cycles, cycles*4, size*10000*8*1000/(cycles*4));
+                dev_info(dev, "wrote 10000 blocks of %lld bytes (stride %lld) in %lld cycles (%lld ns): %lld Mbps", size, stride, cycles, cycles*4, size*10000*8*1000/(cycles*4));
+            }
         }
 
         page = alloc_pages_node(NUMA_NO_NODE, GFP_ATOMIC | __GFP_NOWARN | __GFP_COMP | __GFP_MEMALLOC, 2);
@@ -444,11 +451,14 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 
                 for (size = 1; size <= 8192; size *= 2)
                 {
-                    dma_block_read(dma_bench_dev, dma_addr, 0, 0x3fff, size, 0, 0, 0x3fff, size, size, 10000);
+                    for (stride = size; stride <= max(size, 256llu); stride *= 2)
+                    {
+                        dma_block_read(dma_bench_dev, dma_addr+0x0000, 0, 0x3fff, stride, 0, 0, 0x3fff, stride, size, 10000);
 
-                    cycles = ioread32(dma_bench_dev->hw_addr+0x001008);
+                        cycles = ioread32(dma_bench_dev->hw_addr+0x001008);
 
-                    dev_info(dev, "read 10000 blocks of %lld bytes in %lld cycles (%lld ns): %lld Mbps", size, cycles, cycles*4, size*10000*8*1000/(cycles*4));
+                        dev_info(dev, "read 10000 blocks of %lld bytes (stride %lld) in %lld cycles (%lld ns): %lld Mbps", size, stride, cycles, cycles*4, size*10000*8*1000/(cycles*4));
+                    }
                 }
 
                 dma_unmap_page(dev, dma_addr, 4096*(1 << 2), PCI_DMA_TODEVICE);
@@ -466,11 +476,14 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 
                 for (size = 1; size <= 8192; size *= 2)
                 {
-                    dma_block_write(dma_bench_dev, dma_addr+0x0000, 0, 0x3fff, size, 0, 0, 0x3fff, size, size, 10000);
+                    for (stride = size; stride <= max(size, 256llu); stride *= 2)
+                    {
+                        dma_block_write(dma_bench_dev, dma_addr+0x0000, 0, 0x3fff, stride, 0, 0, 0x3fff, stride, size, 10000);
 
-                    cycles = ioread32(dma_bench_dev->hw_addr+0x001108);
+                        cycles = ioread32(dma_bench_dev->hw_addr+0x001108);
 
-                    dev_info(dev, "wrote 10000 blocks of %lld bytes in %lld cycles (%lld ns): %lld Mbps", size, cycles, cycles*4, size*10000*8*1000/(cycles*4));
+                        dev_info(dev, "wrote 10000 blocks of %lld bytes (stride %lld) in %lld cycles (%lld ns): %lld Mbps", size, stride, cycles, cycles*4, size*10000*8*1000/(cycles*4));
+                    }
                 }
 
                 dma_unmap_page(dev, dma_addr, 4096*(1 << 2), PCI_DMA_FROMDEVICE);
