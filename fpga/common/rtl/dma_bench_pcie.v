@@ -48,17 +48,17 @@ module dma_bench_pcie #
     // PCIe tag count
     parameter PCIE_TAG_COUNT = 256,
     // Operation table size (read)
-    parameter READ_OP_TABLE_SIZE = PCIE_TAG_COUNT,
+    parameter PCIE_DMA_READ_OP_TABLE_SIZE = PCIE_TAG_COUNT,
     // In-flight transmit limit (read)
-    parameter READ_TX_LIMIT = 2**TX_SEQ_NUM_WIDTH,
+    parameter PCIE_DMA_READ_TX_LIMIT = 2**TX_SEQ_NUM_WIDTH,
     // Transmit flow control (read)
-    parameter READ_TX_FC_ENABLE = 0,
+    parameter PCIE_DMA_READ_TX_FC_ENABLE = 0,
     // Operation table size (write)
-    parameter WRITE_OP_TABLE_SIZE = 2**TX_SEQ_NUM_WIDTH,
+    parameter PCIE_DMA_WRITE_OP_TABLE_SIZE = 2**TX_SEQ_NUM_WIDTH,
     // In-flight transmit limit (write)
-    parameter WRITE_TX_LIMIT = 2**TX_SEQ_NUM_WIDTH,
+    parameter PCIE_DMA_WRITE_TX_LIMIT = 2**TX_SEQ_NUM_WIDTH,
     // Transmit flow control (write)
-    parameter WRITE_TX_FC_ENABLE = 0,
+    parameter PCIE_DMA_WRITE_TX_FC_ENABLE = 0,
     // Force 64 bit address
     parameter TLP_FORCE_64_BIT_ADDR = 0,
     // Requester ID mash
@@ -324,12 +324,12 @@ dma_if_pcie #(
     .PCIE_TAG_COUNT(PCIE_TAG_COUNT),
     .LEN_WIDTH(DMA_LEN_WIDTH),
     .TAG_WIDTH(DMA_TAG_WIDTH),
-    .READ_OP_TABLE_SIZE(READ_OP_TABLE_SIZE),
-    .READ_TX_LIMIT(READ_TX_LIMIT),
-    .READ_TX_FC_ENABLE(READ_TX_FC_ENABLE),
-    .WRITE_OP_TABLE_SIZE(WRITE_OP_TABLE_SIZE),
-    .WRITE_TX_LIMIT(WRITE_TX_LIMIT),
-    .WRITE_TX_FC_ENABLE(WRITE_TX_FC_ENABLE),
+    .READ_OP_TABLE_SIZE(PCIE_DMA_READ_OP_TABLE_SIZE),
+    .READ_TX_LIMIT(PCIE_DMA_READ_TX_LIMIT),
+    .READ_TX_FC_ENABLE(PCIE_DMA_READ_TX_FC_ENABLE),
+    .WRITE_OP_TABLE_SIZE(PCIE_DMA_WRITE_OP_TABLE_SIZE),
+    .WRITE_TX_LIMIT(PCIE_DMA_WRITE_TX_LIMIT),
+    .WRITE_TX_FC_ENABLE(PCIE_DMA_WRITE_TX_FC_ENABLE),
     .TLP_FORCE_64_BIT_ADDR(TLP_FORCE_64_BIT_ADDR),
     .CHECK_BUS_NUMBER(CHECK_BUS_NUMBER)
 )
