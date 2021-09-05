@@ -156,7 +156,7 @@ always @* begin
         STATE_WRITE: begin;
             mem_wr_en = 1'b1;
             acc_clear[count_reg] = 1'b1;
-            if (!m_axis_stat_tvalid_reg && update_reg[count_reg]) begin
+            if (!m_axis_stat_tvalid_reg && (update_reg[count_reg] || mem_rd_data_reg[STAT_INC_WIDTH-1])) begin
                 update_next[count_reg] = 1'b0;
                 mem_wr_data = 0;
                 if (zero_reg[count_reg]) begin
