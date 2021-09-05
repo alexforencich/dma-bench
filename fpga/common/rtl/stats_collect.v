@@ -187,15 +187,11 @@ always @* begin
         end
     endcase
 
-    if (update_period_reg == 0) begin
+    if (update_period_reg == 0 || update) begin
         update_next = {COUNT{1'b1}};
         update_period_next = UPDATE_PERIOD-1;
     end else begin
         update_period_next = update_period_reg - 1;
-    end
-
-    if (update) begin
-        update_next = {COUNT{1'b1}};
     end
 end
 
