@@ -28,6 +28,7 @@ import os
 import random
 
 import cocotb_test.simulator
+import pytest
 
 import cocotb
 from cocotb.clock import Clock
@@ -86,6 +87,9 @@ async def run_test_acc(dut, data_in=None, idle_inserter=None, backpressure_inser
 
     tb = TB(dut)
 
+    byte_lanes = tb.axil_master.read_if.byte_lanes
+    counter_size = max(int(os.getenv("PARAM_STAT_COUNT_WIDTH")) // 8, byte_lanes)
+
     await tb.cycle_reset()
 
     tb.set_idle_generator(idle_inserter)
@@ -99,7 +103,7 @@ async def run_test_acc(dut, data_in=None, idle_inserter=None, backpressure_inser
 
         await Timer(1000, 'ns')
 
-    data = await tb.axil_master.read_dwords(0, 10)
+    data = await tb.axil_master.read_words(0, 10, ws=counter_size)
 
     print(data)
 
@@ -114,6 +118,8 @@ async def run_stress_test(dut, idle_inserter=None, backpressure_inserter=None):
 
     tb = TB(dut)
 
+    byte_lanes = tb.axil_master.read_if.byte_lanes
+    counter_size = max(int(os.getenv("PARAM_STAT_COUNT_WIDTH")) // 8, byte_lanes)
     stat_inc_width = len(dut.s_axis_stat_tdata)
     stat_id_width = len(dut.s_axis_stat_tid)
 
@@ -154,7 +160,7 @@ async def run_stress_test(dut, idle_inserter=None, backpressure_inserter=None):
 
     print(data_ref)
 
-    data = await tb.axil_master.read_dwords(0, 2**stat_id_width)
+    data = await tb.axil_master.read_words(0, 2**stat_id_width, ws=counter_size)
 
     print(data)
 
@@ -187,7 +193,8 @@ tests_dir = os.path.abspath(os.path.dirname(__file__))
 rtl_dir = os.path.abspath(os.path.join(tests_dir, '..', '..', 'rtl'))
 
 
-def test_stats_counter(request):
+@pytest.mark.parametrize("stat_count_width", [32, 64])
+def test_stats_counter(request, stat_count_width):
     dut = "stats_counter"
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -200,7 +207,7 @@ def test_stats_counter(request):
 
     parameters['STAT_INC_WIDTH'] = 16
     parameters['STAT_ID_WIDTH'] = 8
-    parameters['STAT_COUNT_WIDTH'] = 32
+    parameters['STAT_COUNT_WIDTH'] = stat_count_width
     parameters['AXIL_DATA_WIDTH'] = 32
     parameters['AXIL_ADDR_WIDTH'] = parameters['STAT_ID_WIDTH'] + ((parameters['STAT_COUNT_WIDTH']+7)//8-1).bit_length()
     parameters['AXIL_STRB_WIDTH'] = parameters['AXIL_DATA_WIDTH'] // 8

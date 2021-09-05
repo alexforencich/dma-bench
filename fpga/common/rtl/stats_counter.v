@@ -40,7 +40,7 @@ module stats_counter #
     // Width of AXI lite data bus in bits
     parameter AXIL_DATA_WIDTH = 32,
     // Width of AXI lite address bus in bits
-    parameter AXIL_ADDR_WIDTH = STAT_ID_WIDTH+$clog2((STAT_COUNT_WIDTH+7)/8),
+    parameter AXIL_ADDR_WIDTH = STAT_ID_WIDTH+$clog2(((AXIL_DATA_WIDTH > STAT_COUNT_WIDTH ? AXIL_DATA_WIDTH : STAT_COUNT_WIDTH)+7)/8),
     // Width of AXI lite wstrb (width of data bus in words)
     parameter AXIL_STRB_WIDTH = (AXIL_DATA_WIDTH/8)
 )
@@ -80,6 +80,23 @@ module stats_counter #
     input  wire                        s_axil_rready
 );
 
+parameter ID_SHIFT = $clog2(((AXIL_DATA_WIDTH > STAT_COUNT_WIDTH ? AXIL_DATA_WIDTH : STAT_COUNT_WIDTH)+7)/8);
+parameter WORD_SELECT_SHIFT = $clog2(AXIL_DATA_WIDTH/8);
+parameter WORD_SELECT_WIDTH = STAT_COUNT_WIDTH > AXIL_DATA_WIDTH ? $clog2((STAT_COUNT_WIDTH+7)/8) - $clog2(AXIL_DATA_WIDTH/8) : 0;
+
+// bus width assertions
+initial begin
+    if (AXIL_STRB_WIDTH * 8 != AXIL_DATA_WIDTH) begin
+        $error("Error: AXI lite interface requires byte (8-bit) granularity (instance %m)");
+        $finish;
+    end
+
+    if (AXIL_ADDR_WIDTH < STAT_ID_WIDTH+ID_SHIFT) begin
+        $error("Error: AXI lite address width too narrow (instance %m)");
+        $finish;
+    end
+end
+
 localparam [1:0]
     STATE_INIT = 2'd0,
     STATE_IDLE = 2'd1,
@@ -100,9 +117,13 @@ reg s_axil_rvalid_reg = 1'b0, s_axil_rvalid_next;
 reg [STAT_ID_WIDTH-1:0] id_reg = {STAT_ID_WIDTH{1'b0}}, id_next;
 reg [STAT_INC_WIDTH-1:0] inc_reg = {STAT_INC_WIDTH{1'b0}}, inc_next;
 
+reg rd_data_valid_reg = 1'b0, rd_data_valid_next;
+reg [WORD_SELECT_WIDTH-1:0] rd_data_shift_reg = 0, rd_data_shift_next;
+
 reg [STAT_COUNT_WIDTH-1:0] mem_reg[(2**STAT_ID_WIDTH)-1:0];
 
 reg [STAT_COUNT_WIDTH-1:0] mem_rd_data_reg = {STAT_COUNT_WIDTH{1'b0}};
+reg [STAT_COUNT_WIDTH-1:0] mem_rd_data_axil_reg = {STAT_COUNT_WIDTH{1'b0}};
 
 reg mem_rd_en;
 reg mem_wr_en;
@@ -110,8 +131,8 @@ reg [STAT_COUNT_WIDTH-1:0] mem_wr_data;
 
 reg mem_rd_en_axil;
 
-wire [STAT_ID_WIDTH-1:0] s_axil_araddr_id = s_axil_araddr >> $clog2((STAT_COUNT_WIDTH+7)/8);
-wire [STAT_ID_WIDTH-1:0] s_axil_araddr_word = s_axil_araddr >> $clog2(AXIL_STRB_WIDTH);
+wire [STAT_ID_WIDTH-1:0] s_axil_araddr_id = s_axil_araddr >> ID_SHIFT;
+wire [WORD_SELECT_WIDTH-1:0] s_axil_araddr_word = s_axil_araddr >> WORD_SELECT_SHIFT;
 
 assign s_axis_stat_tready = s_axis_stat_tready_reg;
 
@@ -244,12 +265,28 @@ end
 always @* begin
     s_axil_arready_next = 1'b0;
     s_axil_rvalid_next = s_axil_rvalid_reg && !s_axil_rready;
+    s_axil_rdata_next = s_axil_rdata_reg;
+
+    rd_data_valid_next = rd_data_valid_reg;
+    rd_data_shift_next = rd_data_shift_reg;
 
     mem_rd_en_axil = 1'b0;
 
-    if (s_axil_arvalid && (!s_axil_rvalid || s_axil_rready) && !s_axil_arready) begin
-        s_axil_arready_next = 1'b1;
+    if (rd_data_valid_reg && (!s_axil_rvalid || s_axil_rready)) begin
         s_axil_rvalid_next = 1'b1;
+        rd_data_valid_next = 1'b0;
+
+        if (STAT_COUNT_WIDTH > AXIL_DATA_WIDTH) begin
+            s_axil_rdata_next = mem_rd_data_axil_reg >> rd_data_shift_reg*AXIL_DATA_WIDTH;
+        end else begin
+            s_axil_rdata_next = mem_rd_data_axil_reg;
+        end
+    end
+
+    if (s_axil_arvalid && (!s_axil_rvalid || s_axil_rready || !rd_data_valid_reg) && !s_axil_arready) begin
+        s_axil_arready_next = 1'b1;
+        rd_data_valid_next = 1'b1;
+        rd_data_shift_next = s_axil_araddr_word;
 
         mem_rd_en_axil = 1'b1;
     end
@@ -258,19 +295,19 @@ end
 always @(posedge clk) begin
     s_axil_arready_reg <= s_axil_arready_next;
     s_axil_rvalid_reg <= s_axil_rvalid_next;
+    s_axil_rdata_reg <= s_axil_rdata_next;
+
+    rd_data_valid_reg <= rd_data_valid_next;
+    rd_data_shift_reg <= rd_data_shift_next;
 
     if (mem_rd_en_axil) begin
-        if (AXIL_DATA_WIDTH > STAT_COUNT_WIDTH) begin
-            // TODO
-            s_axil_rdata_reg <= mem_reg[s_axil_araddr_id];
-        end else begin
-            s_axil_rdata_reg <= mem_reg[s_axil_araddr_id];
-        end
+        mem_rd_data_axil_reg <= mem_reg[s_axil_araddr_id];
     end
 
     if (rst) begin
         s_axil_arready_reg <= 1'b0;
         s_axil_rvalid_reg <= 1'b0;
+        rd_data_valid_reg <= 1'b0;
     end
 end
 
