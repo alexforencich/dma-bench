@@ -93,7 +93,9 @@ static void print_counters(struct dma_bench_dev *dma_bench_dev)
     {
         if (strlen(dma_bench_stats_names[index]) > 0)
         {
-            dev_info(dev, "%s: %d", dma_bench_stats_names[index], ioread32(dma_bench_dev->hw_addr+0x010000+index*4));
+            u64 val = (u64)ioread32(dma_bench_dev->hw_addr+0x010000+index*8+0);
+            val |= (u64)ioread32(dma_bench_dev->hw_addr+0x010000+index*8+4) << 32;
+            dev_info(dev, "%s: %lld", dma_bench_stats_names[index], val);
         }
         index++;
     }

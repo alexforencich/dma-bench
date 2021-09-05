@@ -275,7 +275,7 @@ async def run_test(dut):
     lst = []
 
     for k in range(32):
-        lst.append(await tb.rc.mem_read_dword(dev_pf0_bar0+0x010000+k*4))
+        lst.append(await tb.rc.mem_read_dword(dev_pf0_bar0+0x010000+k*8))
 
     print(lst)
 
