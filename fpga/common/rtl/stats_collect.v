@@ -33,7 +33,7 @@ module stats_collect #
 (
     // Channel count
     parameter COUNT = 8,
-    // Iincrement width (bits)
+    // Increment width (bits)
     parameter INC_WIDTH = 8,
     // Statistics counter increment width (bits)
     parameter STAT_INC_WIDTH = 16,
@@ -69,6 +69,18 @@ module stats_collect #
 parameter COUNT_WIDTH = $clog2(COUNT);
 parameter PERIOD_COUNT_WIDTH = $clog2(UPDATE_PERIOD-1);
 parameter ACC_WIDTH = INC_WIDTH+COUNT_WIDTH+1;
+
+// bus width assertions
+initial begin
+    if (COUNT > 2**STAT_ID_WIDTH) begin
+        $error("Error: ID width insufficient for channel count (instance %m)");
+        $finish;
+    end
+
+    if (INC_WIDTH+PERIOD_COUNT_WIDTH > STAT_INC_WIDTH) begin
+        $warning("Warning: accumulator may overflow before periodic update (instance %m)");
+    end
+end
 
 localparam [1:0]
     STATE_READ = 2'd0,
