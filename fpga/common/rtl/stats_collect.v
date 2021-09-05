@@ -40,7 +40,9 @@ module stats_collect #
     // Statistics counter ID width (bits)
     parameter STAT_ID_WIDTH = $clog2(COUNT),
     // Statistics counter update period (cycles)
-    parameter UPDATE_PERIOD = 1024
+    parameter UPDATE_PERIOD = 1024,
+    // Base ID (ID for first channel)
+    parameter BASE_ID = 0
 )
 (
     input  wire                        clk,
@@ -173,11 +175,11 @@ always @* begin
                 mem_wr_data = 0;
                 if (zero_reg[count_reg]) begin
                     m_axis_stat_tdata_next = acc_int[count_reg];
-                    m_axis_stat_tid_next = count_reg;
+                    m_axis_stat_tid_next = count_reg + BASE_ID;
                     m_axis_stat_tvalid_next = acc_int[count_reg] != 0;
                 end else begin
                     m_axis_stat_tdata_next = mem_rd_data_reg + acc_int[count_reg];
-                    m_axis_stat_tid_next = count_reg;
+                    m_axis_stat_tid_next = count_reg + BASE_ID;
                     m_axis_stat_tvalid_next = mem_rd_data_reg != 0 || acc_int[count_reg] != 0;
                 end
             end else begin
