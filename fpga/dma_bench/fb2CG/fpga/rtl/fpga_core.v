@@ -133,8 +133,7 @@ module fpga_core #
     output wire                               status_error_uncor
 );
 
-dma_bench_pcie_us #
-(
+dma_bench_pcie_us #(
     .AXIS_PCIE_DATA_WIDTH(AXIS_PCIE_DATA_WIDTH),
     .AXIS_PCIE_KEEP_WIDTH(AXIS_PCIE_KEEP_WIDTH),
     .AXIS_PCIE_RC_USER_WIDTH(AXIS_PCIE_RC_USER_WIDTH),
