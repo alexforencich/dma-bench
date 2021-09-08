@@ -255,6 +255,74 @@ static void dma_block_write(struct dma_bench_dev *dma_bench_dev,
         dev_warn(dma_bench_dev->dev, "dma_block_write: operation timed out");
 }
 
+static u64 read_stat_counter(struct dma_bench_dev *dma_bench_dev, int index)
+{
+    u64 val;
+    val = (u64)ioread32(dma_bench_dev->hw_addr+0x010000+index*8+0);
+    val |= (u64)ioread32(dma_bench_dev->hw_addr+0x010000+index*8+4) << 32;
+    return val;
+}
+
+static void dma_block_read_bench(struct dma_bench_dev *dma_bench_dev, dma_addr_t dma_addr, u64 size, u64 stride, u64 count)
+{
+    u64 cycles;
+    u64 op_count;
+    u64 op_latency;
+    u64 req_count;
+    u64 req_latency;
+
+    udelay(5);
+
+    op_count = read_stat_counter(dma_bench_dev, 32);
+    op_latency = read_stat_counter(dma_bench_dev, 34);
+    req_count = read_stat_counter(dma_bench_dev, 36);
+    req_latency = read_stat_counter(dma_bench_dev, 37);
+
+    dma_block_read(dma_bench_dev, dma_addr, 0, 0x3fff, stride, 0, 0, 0x3fff, stride, size, count);
+
+    cycles = ioread32(dma_bench_dev->hw_addr+0x001008);
+
+    udelay(5);
+
+    op_count = read_stat_counter(dma_bench_dev, 32) - op_count;
+    op_latency = read_stat_counter(dma_bench_dev, 34) - op_latency;
+    req_count = read_stat_counter(dma_bench_dev, 36) - req_count;
+    req_latency = read_stat_counter(dma_bench_dev, 37) - req_latency;
+
+    dev_info(dma_bench_dev->dev, "read %lld blocks of %lld bytes (stride %lld) in %lld ns (%lld ns/op, %lld req, %lld ns/req): %lld Mbps",
+        count, size, stride, cycles*4, (op_latency*4)/op_count, req_count, (req_latency*4)/req_count, size*count*8*1000/(cycles*4));
+}
+
+static void dma_block_write_bench(struct dma_bench_dev *dma_bench_dev, dma_addr_t dma_addr, u64 size, u64 stride, u64 count)
+{
+    u64 cycles;
+    u64 op_count;
+    u64 op_latency;
+    u64 req_count;
+    u64 req_latency;
+
+    udelay(5);
+
+    op_count = read_stat_counter(dma_bench_dev, 48);
+    op_latency = read_stat_counter(dma_bench_dev, 50);
+    req_count = read_stat_counter(dma_bench_dev, 52);
+    req_latency = read_stat_counter(dma_bench_dev, 53);
+
+    dma_block_write(dma_bench_dev, dma_addr, 0, 0x3fff, stride, 0, 0, 0x3fff, stride, size, count);
+
+    cycles = ioread32(dma_bench_dev->hw_addr+0x001108);
+
+    udelay(5);
+
+    op_count = read_stat_counter(dma_bench_dev, 48) - op_count;
+    op_latency = read_stat_counter(dma_bench_dev, 50) - op_latency;
+    req_count = read_stat_counter(dma_bench_dev, 52) - req_count;
+    req_latency = read_stat_counter(dma_bench_dev, 53) - req_latency;
+
+    dev_info(dma_bench_dev->dev, "wrote %lld blocks of %lld bytes (stride %lld) in %lld ns (%lld ns/op, %lld req, %lld ns/req): %lld Mbps",
+        count, size, stride, cycles*4, (op_latency*4)/op_count, req_count, (req_latency*4)/req_count, size*count*8*1000/(cycles*4));
+}
+
 static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
     int ret = 0;
@@ -428,7 +496,6 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 
     if (!mismatch)
     {
-        u64 cycles;
         u64 size;
         u64 stride;
         struct page *page;
@@ -440,11 +507,7 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
         {
             for (stride = size; stride <= max(size, 256llu); stride *= 2)
             {
-                dma_block_read(dma_bench_dev, dma_bench_dev->dma_region_addr+0x0000, 0, 0x3fff, stride, 0, 0, 0x3fff, stride, size, 10000);
-
-                cycles = ioread32(dma_bench_dev->hw_addr+0x001008);
-
-                dev_info(dev, "read 10000 blocks of %lld bytes (stride %lld) in %lld cycles (%lld ns): %lld Mbps", size, stride, cycles, cycles*4, size*10000*8*1000/(cycles*4));
+                dma_block_read_bench(dma_bench_dev, dma_bench_dev->dma_region_addr+0x0000, size, stride, 10000);
             }
         }
 
@@ -454,11 +517,7 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
         {
             for (stride = size; stride <= max(size, 256llu); stride *= 2)
             {
-                dma_block_write(dma_bench_dev, dma_bench_dev->dma_region_addr+0x0000, 0, 0x3fff, stride, 0, 0, 0x3fff, stride, size, 10000);
-
-                cycles = ioread32(dma_bench_dev->hw_addr+0x001108);
-
-                dev_info(dev, "wrote 10000 blocks of %lld bytes (stride %lld) in %lld cycles (%lld ns): %lld Mbps", size, stride, cycles, cycles*4, size*10000*8*1000/(cycles*4));
+                dma_block_write_bench(dma_bench_dev, dma_bench_dev->dma_region_addr+0x0000, size, stride, 10000);
             }
         }
 
@@ -476,11 +535,7 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
                 {
                     for (stride = size; stride <= max(size, 256llu); stride *= 2)
                     {
-                        dma_block_read(dma_bench_dev, dma_addr+0x0000, 0, 0x3fff, stride, 0, 0, 0x3fff, stride, size, 10000);
-
-                        cycles = ioread32(dma_bench_dev->hw_addr+0x001008);
-
-                        dev_info(dev, "read 10000 blocks of %lld bytes (stride %lld) in %lld cycles (%lld ns): %lld Mbps", size, stride, cycles, cycles*4, size*10000*8*1000/(cycles*4));
+                        dma_block_read_bench(dma_bench_dev, dma_addr+0x0000, size, stride, 10000);
                     }
                 }
 
@@ -501,11 +556,7 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
                 {
                     for (stride = size; stride <= max(size, 256llu); stride *= 2)
                     {
-                        dma_block_write(dma_bench_dev, dma_addr+0x0000, 0, 0x3fff, stride, 0, 0, 0x3fff, stride, size, 10000);
-
-                        cycles = ioread32(dma_bench_dev->hw_addr+0x001108);
-
-                        dev_info(dev, "wrote 10000 blocks of %lld bytes (stride %lld) in %lld cycles (%lld ns): %lld Mbps", size, stride, cycles, cycles*4, size*10000*8*1000/(cycles*4));
+                        dma_block_write_bench(dma_bench_dev, dma_addr+0x0000, size, stride, 10000);
                     }
                 }
 
