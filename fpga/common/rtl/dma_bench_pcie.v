@@ -75,6 +75,8 @@ module dma_bench_pcie #
      */
     input  wire [TLP_SEG_COUNT*TLP_SEG_DATA_WIDTH-1:0]   rx_req_tlp_data,
     input  wire [TLP_SEG_COUNT*TLP_SEG_HDR_WIDTH-1:0]    rx_req_tlp_hdr,
+    input  wire [TLP_SEG_COUNT*3-1:0]                    rx_req_tlp_bar_id,
+    input  wire [TLP_SEG_COUNT*8-1:0]                    rx_req_tlp_func_num,
     input  wire [TLP_SEG_COUNT-1:0]                      rx_req_tlp_valid,
     input  wire [TLP_SEG_COUNT-1:0]                      rx_req_tlp_sop,
     input  wire [TLP_SEG_COUNT-1:0]                      rx_req_tlp_eop,

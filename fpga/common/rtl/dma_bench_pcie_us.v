@@ -478,12 +478,14 @@ dma_bench_pcie_inst (
     .rx_req_tlp_data(pcie_rx_req_tlp_data),
     .rx_req_tlp_hdr(pcie_rx_req_tlp_hdr),
     .rx_req_tlp_valid(pcie_rx_req_tlp_valid),
+    .rx_req_tlp_bar_id(pcie_rx_req_tlp_bar_id),
+    .rx_req_tlp_func_num(pcie_rx_req_tlp_func_num),
     .rx_req_tlp_sop(pcie_rx_req_tlp_sop),
     .rx_req_tlp_eop(pcie_rx_req_tlp_eop),
     .rx_req_tlp_ready(pcie_rx_req_tlp_ready),
 
     /*
-     * TLP output (pcie_completion)
+     * TLP output (completion)
      */
     .tx_cpl_tlp_data(pcie_tx_cpl_tlp_data),
     .tx_cpl_tlp_strb(pcie_tx_cpl_tlp_strb),
@@ -494,7 +496,7 @@ dma_bench_pcie_inst (
     .tx_cpl_tlp_ready(pcie_tx_cpl_tlp_ready),
 
     /*
-     * TLP input (pcie_completion)
+     * TLP input (completion)
      */
     .rx_cpl_tlp_data(pcie_rx_cpl_tlp_data),
     .rx_cpl_tlp_hdr(pcie_rx_cpl_tlp_hdr),
@@ -505,7 +507,7 @@ dma_bench_pcie_inst (
     .rx_cpl_tlp_ready(pcie_rx_cpl_tlp_ready),
 
     /*
-     * TLP output (pcie_read request)
+     * TLP output (read request)
      */
     .tx_rd_req_tlp_hdr(pcie_tx_rd_req_tlp_hdr),
     .tx_rd_req_tlp_seq(pcie_tx_rd_req_tlp_seq),
@@ -515,7 +517,7 @@ dma_bench_pcie_inst (
     .tx_rd_req_tlp_ready(pcie_tx_rd_req_tlp_ready),
 
     /*
-     * TLP output (pcie_write request)
+     * TLP output (write request)
      */
     .tx_wr_req_tlp_data(pcie_tx_wr_req_tlp_data),
     .tx_wr_req_tlp_strb(pcie_tx_wr_req_tlp_strb),
