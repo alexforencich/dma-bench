@@ -331,7 +331,7 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
     int k;
     int mismatch = 0;
 
-    dev_info(dev, "DMA bench probe");
+    dev_info(dev, DRIVER_NAME " probe");
     dev_info(dev, " Vendor: 0x%04x", pdev->vendor);
     dev_info(dev, " Device: 0x%04x", pdev->device);
     dev_info(dev, " Class: 0x%06x", pdev->class);
@@ -428,7 +428,7 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
     }
 
     // Set up interrupt
-    ret = pci_request_irq(pdev, 0, dma_bench_intr, 0, dma_bench_dev, "dma_bench_dev");
+    ret = pci_request_irq(pdev, 0, dma_bench_intr, 0, dma_bench_dev, DRIVER_NAME);
     if (ret < 0)
     {
         dev_err(dev, "Failed to request IRQ");
@@ -610,7 +610,7 @@ static void dma_bench_remove(struct pci_dev *pdev)
     struct dma_bench_dev *dma_bench_dev;
     struct device *dev = &pdev->dev;
 
-    dev_info(dev, "dma_bench_dev remove");
+    dev_info(dev, DRIVER_NAME " remove");
 
     if (!(dma_bench_dev = pci_get_drvdata(pdev))) {
         return;
@@ -632,7 +632,7 @@ static void dma_bench_remove(struct pci_dev *pdev)
 
 static void dma_bench_shutdown(struct pci_dev *pdev)
 {
-    dev_info(&pdev->dev, "dma_bench_dev shutdown");
+    dev_info(&pdev->dev, DRIVER_NAME " shutdown");
 
     dma_bench_remove(pdev);
 }
