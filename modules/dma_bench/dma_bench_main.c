@@ -36,7 +36,6 @@ MODULE_DESCRIPTION("DMA benchmark driver");
 MODULE_AUTHOR("Alex Forencich");
 MODULE_LICENSE("Dual MIT/GPL");
 MODULE_VERSION(DRIVER_VERSION);
-MODULE_SUPPORTED_DEVICE(DRIVER_NAME);
 
 static const struct pci_device_id pci_ids[] = {
     { PCI_DEVICE(0x1234, 0x0002) },
