@@ -5,7 +5,7 @@ BINDIR = $(DESTDIR)$(PREFIX)/bin
 CC = gcc
 CFLAGS = -O3 -Wall -I../modules/dma_bench
 
-BIN = dma-bench-perf
+BIN = dma-bench-config dma-bench-perf
 
 GENDEPFLAGS = -MD -MP -MF .$(@F).d
 
@@ -15,6 +15,9 @@ all: $(BIN)
 
 %.o: %.c
 	$(CC) $(ALL_CFLAGS) -c -o $@ $<
+
+dma-bench-config: dma_bench_config.o dma_bench.o
+	$(CC) $(ALL_CFLAGS) $^ -o $@
 
 dma-bench-perf: dma_bench_perf.o dma_bench.o
 	$(CC) $(CFLAGS) $^ -o $@
