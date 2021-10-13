@@ -32,7 +32,7 @@ THE SOFTWARE.
 #define DMA_BENCH_IOCTL_INFO _IOR(DMA_BENCH_IOCTL_TYPE, 0xf0, struct dma_bench_ioctl_info)
 
 struct dma_bench_ioctl_info {
-    size_t regs_size;
+	size_t regs_size;
 };
 
 #endif /* DMA_BENCH_IOCTL_H */

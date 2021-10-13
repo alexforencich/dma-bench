@@ -35,28 +35,28 @@ THE SOFTWARE.
 #include "dma_bench_hw.h"
 
 struct dma_bench_dev {
-    struct device *dev;
+	struct device *dev;
 
-    size_t hw_regs_size;
-    phys_addr_t hw_regs_phys;
-    void * __iomem hw_addr;
+	size_t hw_regs_size;
+	phys_addr_t hw_regs_phys;
+	void __iomem *hw_addr;
 
-    char name[16];
+	char name[16];
 
-    int irq_count;
-    int irq_map[32];
+	int irq_count;
+	int irq_map[32];
 
-    unsigned int id;
-    struct list_head dev_list_node;
+	unsigned int id;
+	struct list_head dev_list_node;
 
-    struct miscdevice misc_dev;
+	struct miscdevice misc_dev;
 
-    // DMA buffer
-    size_t dma_region_len;
-    void *dma_region;
-    dma_addr_t dma_region_addr;
+	// DMA buffer
+	size_t dma_region_len;
+	void *dma_region;
+	dma_addr_t dma_region_addr;
 
-    int irqcount;
+	int irqcount;
 };
 
 // dma_bench_dev.c

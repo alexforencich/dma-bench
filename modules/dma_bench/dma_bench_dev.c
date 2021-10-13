@@ -29,96 +29,85 @@ THE SOFTWARE.
 
 static int dma_bench_open(struct inode *inode, struct file *file)
 {
-    // struct miscdevice *miscdev = file->private_data;
-    // struct dma_bench_dev *dma_bench_dev = container_of(miscdev, struct dma_bench_dev, misc_dev);
+	// struct miscdevice *miscdev = file->private_data;
+	// struct dma_bench_dev *dma_bench_dev = container_of(miscdev, struct dma_bench_dev, misc_dev);
 
-    return 0;
+	return 0;
 }
 
 static int dma_bench_release(struct inode *inode, struct file *file)
 {
-    // struct miscdevice *miscdev = file->private_data;
-    // struct dma_bench_dev *dma_bench_dev = container_of(miscdev, struct dma_bench_dev, misc_dev);
+	// struct miscdevice *miscdev = file->private_data;
+	// struct dma_bench_dev *dma_bench_dev = container_of(miscdev, struct dma_bench_dev, misc_dev);
 
-    return 0;
+	return 0;
 }
 
 static int dma_bench_map_registers(struct dma_bench_dev *dma_bench, struct vm_area_struct *vma)
 {
-    size_t map_size = vma->vm_end - vma->vm_start;
-    int ret;
+	size_t map_size = vma->vm_end - vma->vm_start;
+	int ret;
 
-    if (map_size > dma_bench->hw_regs_size)
-    {
-        dev_err(dma_bench->dev, "dma_bench_map_registers: Tried to map registers region with wrong size %lu (expected <=%zu)", vma->vm_end - vma->vm_start, dma_bench->hw_regs_size);
-        return -EINVAL;
-    }
+	if (map_size > dma_bench->hw_regs_size) {
+		dev_err(dma_bench->dev, "dma_bench_map_registers: Tried to map registers region with wrong size %lu (expected <=%zu)",
+		        vma->vm_end - vma->vm_start, dma_bench->hw_regs_size);
+		return -EINVAL;
+	}
 
-    ret = remap_pfn_range(vma, vma->vm_start, dma_bench->hw_regs_phys >> PAGE_SHIFT, map_size, pgprot_noncached(vma->vm_page_prot));
+	ret = remap_pfn_range(vma, vma->vm_start, dma_bench->hw_regs_phys >> PAGE_SHIFT,
+	                      map_size, pgprot_noncached(vma->vm_page_prot));
 
-    if (ret)
-    {
-        dev_err(dma_bench->dev, "dma_bench_map_registers: remap_pfn_range failed for registers region");
-    }
-    else
-    {
-        dev_dbg(dma_bench->dev, "dma_bench_map_registers: Mapped registers region at phys: 0x%pap, virt: 0x%p", &dma_bench->hw_regs_phys, (void *)vma->vm_start);
-    }
+	if (ret)
+		dev_err(dma_bench->dev, "dma_bench_map_registers: remap_pfn_range failed for registers region");
+	else
+		dev_dbg(dma_bench->dev, "dma_bench_map_registers: Mapped registers region at phys: 0x%pap, virt: 0x%p",
+		        &dma_bench->hw_regs_phys, (void *)vma->vm_start);
 
-    return ret;    
+	return ret;
 }
 
 static int dma_bench_mmap(struct file *file, struct vm_area_struct *vma)
 {
-    struct miscdevice *miscdev = file->private_data;
-    struct dma_bench_dev *dma_bench = container_of(miscdev, struct dma_bench_dev, misc_dev);
-    int ret;
+	struct miscdevice *miscdev = file->private_data;
+	struct dma_bench_dev *dma_bench = container_of(miscdev, struct dma_bench_dev, misc_dev);
 
-    if (vma->vm_pgoff == 0)
-    {
-        ret = dma_bench_map_registers(dma_bench, vma);
-    }
-    else
-    {
-        goto fail_invalid_offset;
-    }
+	if (vma->vm_pgoff == 0)
+		return dma_bench_map_registers(dma_bench, vma);
 
-    return ret;
-
-fail_invalid_offset:
-    dev_err(dma_bench->dev, "dma_bench_mmap: Tried to map an unknown region at page offset %lu", vma->vm_pgoff);
-    return -EINVAL;
+	dev_err(dma_bench->dev, "dma_bench_mmap: Tried to map an unknown region at page offset %lu",
+	        vma->vm_pgoff);
+	return -EINVAL;
 }
 
 static long dma_bench_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-    struct miscdevice *miscdev = file->private_data;
-    struct dma_bench_dev *dma_bench = container_of(miscdev, struct dma_bench_dev, misc_dev);
+	struct miscdevice *miscdev = file->private_data;
+	struct dma_bench_dev *dma_bench = container_of(miscdev, struct dma_bench_dev, misc_dev);
 
-    if (_IOC_TYPE(cmd) != DMA_BENCH_IOCTL_TYPE)
-        return -ENOTTY;
+	if (_IOC_TYPE(cmd) != DMA_BENCH_IOCTL_TYPE)
+		return -ENOTTY;
 
-    switch (cmd) {
-    case DMA_BENCH_IOCTL_INFO:
-        {
-            struct dma_bench_ioctl_info ctl;
+	switch (cmd) {
+	case DMA_BENCH_IOCTL_INFO:
+		{
+			struct dma_bench_ioctl_info ctl;
 
-            ctl.regs_size = dma_bench->hw_regs_size;
+			ctl.regs_size = dma_bench->hw_regs_size;
 
-            if (copy_to_user((void __user *)arg, &ctl, sizeof(ctl)) != 0)
-                return -EFAULT;
+			if (copy_to_user((void __user *)arg, &ctl, sizeof(ctl)) != 0)
+				return -EFAULT;
 
-            return 0;
-        }
-    default:
-        return -ENOTTY;
-    }
+			return 0;
+		}
+	default:
+		return -ENOTTY;
+	}
 }
 
 const struct file_operations dma_bench_fops = {
-    .owner          = THIS_MODULE,
-    .open           = dma_bench_open,
-    .release        = dma_bench_release,
-    .mmap           = dma_bench_mmap,
-    .unlocked_ioctl = dma_bench_ioctl,
+	.owner = THIS_MODULE,
+	.open = dma_bench_open,
+	.release = dma_bench_release,
+	.mmap = dma_bench_mmap,
+	.unlocked_ioctl = dma_bench_ioctl,
 };
