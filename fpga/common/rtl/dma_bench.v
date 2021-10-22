@@ -351,7 +351,7 @@ always @* begin
     axil_csr_bresp_next = 2'b00;
     axil_csr_bvalid_next = axil_csr_bvalid_reg && !axil_csr_bready;
     axil_csr_arready_next = 1'b0;
-    axil_csr_rdata_next = {AXIL_DATA_WIDTH{1'b0}};
+    axil_csr_rdata_next = axil_csr_rdata_reg;
     axil_csr_rresp_next = 2'b00;
     axil_csr_rvalid_next = axil_csr_rvalid_reg && !axil_csr_rready;
 
