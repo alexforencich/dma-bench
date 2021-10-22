@@ -24,7 +24,9 @@ THE SOFTWARE.
 
 // Language: Verilog 2001
 
+`resetall
 `timescale 1ns / 1ps
+`default_nettype none
 
 /*
  * Ultrascale PCIe AXI DMA Read
@@ -596,9 +598,9 @@ always @* begin
             req_tlp_count_next = req_op_count_reg;
             dword_count = (req_op_count_reg + req_pcie_addr_reg[1:0] + 3) >> 2;
             req_last_tlp = 1'b1;
-            // optimized req_pcie_addr = req_pcie_addr_reg + req_tlp_count_next
+            // always last TLP, so next address is irrelevant
             req_pcie_addr[PCIE_ADDR_WIDTH-1:12] = req_pcie_addr_reg[PCIE_ADDR_WIDTH-1:12];
-            req_pcie_addr[11:0] = req_pcie_addr_reg[11:0] + req_op_count_reg;
+            req_pcie_addr[11:0] = 12'd0;
         end
     end else begin
         // packet larger than max read request size
@@ -1846,3 +1848,5 @@ always @(posedge clk) begin
 end
 
 endmodule
+
+`resetall
