@@ -1,26 +1,25 @@
+// SPDX-License-Identifier: MIT
 /*
-
-Copyright (c) 2021 Alex Forencich
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-*/
+ * Copyright (c) 2021 Alex Forencich
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 
 #include "dma_bench.h"
 #include <linux/module.h>
@@ -28,7 +27,7 @@ THE SOFTWARE.
 #include <linux/version.h>
 #include <linux/delay.h>
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,4,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 #include <linux/pci-aspm.h>
 #endif
 
@@ -84,10 +83,11 @@ static void print_counters(struct dma_bench_dev *dma_bench_dev)
 	struct device *dev = dma_bench_dev->dev;
 
 	int index = 0;
+	u64 val;
 
 	while (dma_bench_stats_names[index]) {
 		if (strlen(dma_bench_stats_names[index]) > 0) {
-			u64 val = (u64) ioread32(dma_bench_dev->hw_addr + 0x010000 + index * 8 + 0);
+			val = (u64) ioread32(dma_bench_dev->hw_addr + 0x010000 + index * 8 + 0);
 			val |= (u64) ioread32(dma_bench_dev->hw_addr + 0x010000 + index * 8 + 4) << 32;
 			dev_info(dev, "%s: %lld", dma_bench_stats_names[index], val);
 		}
@@ -96,7 +96,7 @@ static void print_counters(struct dma_bench_dev *dma_bench_dev)
 }
 
 static void dma_read(struct dma_bench_dev *dma_bench_dev,
-                     dma_addr_t dma_addr, size_t ram_addr, size_t len)
+		dma_addr_t dma_addr, size_t ram_addr, size_t len)
 {
 	int tag = 0;
 	int new_tag = 0;
@@ -120,12 +120,12 @@ static void dma_read(struct dma_bench_dev *dma_bench_dev,
 	}
 
 	if (tag != new_tag)
-		dev_warn(dma_bench_dev->dev, "dma_read: DMA read received tag %d (expected %d)",
-		         new_tag, tag);
+		dev_warn(dma_bench_dev->dev, "%sd tag %d (expected %d)",
+				__func__, new_tag, tag);
 }
 
 static void dma_write(struct dma_bench_dev *dma_bench_dev,
-                      dma_addr_t dma_addr, size_t ram_addr, size_t len)
+		dma_addr_t dma_addr, size_t ram_addr, size_t len)
 {
 	int tag = 0;
 	int new_tag = 0;
@@ -149,16 +149,16 @@ static void dma_write(struct dma_bench_dev *dma_bench_dev,
 	}
 
 	if (tag != new_tag)
-		dev_warn(dma_bench_dev->dev, "dma_write: DMA write received tag %d (expected %d)",
-		         new_tag, tag);
+		dev_warn(dma_bench_dev->dev, "%sd tag %d (expected %d)",
+				__func__, new_tag, tag);
 }
 
 static void dma_block_read(struct dma_bench_dev *dma_bench_dev,
-                           dma_addr_t dma_addr, size_t dma_offset,
-                           size_t dma_offset_mask, size_t dma_stride,
-                           size_t ram_addr, size_t ram_offset,
-                           size_t ram_offset_mask, size_t ram_stride,
-                           size_t block_len, size_t block_count)
+		dma_addr_t dma_addr, size_t dma_offset,
+		size_t dma_offset_mask, size_t dma_stride,
+		size_t ram_addr, size_t ram_offset,
+		size_t ram_offset_mask, size_t ram_stride,
+		size_t block_len, size_t block_count)
 {
 	unsigned long t;
 
@@ -204,15 +204,15 @@ static void dma_block_read(struct dma_bench_dev *dma_bench_dev,
 	}
 
 	if ((ioread32(dma_bench_dev->hw_addr + 0x001000) & 1) != 0)
-		dev_warn(dma_bench_dev->dev, "dma_block_read: operation timed out");
+		dev_warn(dma_bench_dev->dev, "%s: operation timed out", __func__);
 }
 
 static void dma_block_write(struct dma_bench_dev *dma_bench_dev,
-                            dma_addr_t dma_addr, size_t dma_offset,
-                            size_t dma_offset_mask, size_t dma_stride,
-                            size_t ram_addr, size_t ram_offset,
-                            size_t ram_offset_mask, size_t ram_stride,
-                            size_t block_len, size_t block_count)
+		dma_addr_t dma_addr, size_t dma_offset,
+		size_t dma_offset_mask, size_t dma_stride,
+		size_t ram_addr, size_t ram_offset,
+		size_t ram_offset_mask, size_t ram_stride,
+		size_t block_len, size_t block_count)
 {
 	unsigned long t;
 
@@ -258,19 +258,20 @@ static void dma_block_write(struct dma_bench_dev *dma_bench_dev,
 	}
 
 	if ((ioread32(dma_bench_dev->hw_addr + 0x001100) & 1) != 0)
-		dev_warn(dma_bench_dev->dev, "dma_block_write: operation timed out");
+		dev_warn(dma_bench_dev->dev, "%s: operation timed out", __func__);
 }
 
 static u64 read_stat_counter(struct dma_bench_dev *dma_bench_dev, int index)
 {
 	u64 val;
+
 	val = (u64) ioread32(dma_bench_dev->hw_addr + 0x010000 + index * 8 + 0);
 	val |= (u64) ioread32(dma_bench_dev->hw_addr + 0x010000 + index * 8 + 4) << 32;
 	return val;
 }
 
 static void dma_block_read_bench(struct dma_bench_dev *dma_bench_dev,
-                                 dma_addr_t dma_addr, u64 size, u64 stride, u64 count)
+		dma_addr_t dma_addr, u64 size, u64 stride, u64 count)
 {
 	u64 cycles;
 	u64 op_count;
@@ -286,7 +287,7 @@ static void dma_block_read_bench(struct dma_bench_dev *dma_bench_dev,
 	req_latency = read_stat_counter(dma_bench_dev, 37);
 
 	dma_block_read(dma_bench_dev, dma_addr, 0, 0x3fff, stride,
-	               0, 0, 0x3fff, stride, size, count);
+			0, 0, 0x3fff, stride, size, count);
 
 	cycles = ioread32(dma_bench_dev->hw_addr + 0x001008);
 
@@ -298,12 +299,12 @@ static void dma_block_read_bench(struct dma_bench_dev *dma_bench_dev,
 	req_latency = read_stat_counter(dma_bench_dev, 37) - req_latency;
 
 	dev_info(dma_bench_dev->dev, "read %lld blocks of %lld bytes (stride %lld) in %lld ns (%lld ns/op, %lld req, %lld ns/req): %lld Mbps",
-	         count, size, stride, cycles * 4, (op_latency * 4) / op_count, req_count,
-	         (req_latency * 4) / req_count, size * count * 8 * 1000 / (cycles * 4));
+			count, size, stride, cycles * 4, (op_latency * 4) / op_count, req_count,
+			(req_latency * 4) / req_count, size * count * 8 * 1000 / (cycles * 4));
 }
 
 static void dma_block_write_bench(struct dma_bench_dev *dma_bench_dev,
-                                  dma_addr_t dma_addr, u64 size, u64 stride, u64 count)
+		dma_addr_t dma_addr, u64 size, u64 stride, u64 count)
 {
 	u64 cycles;
 	u64 op_count;
@@ -319,7 +320,7 @@ static void dma_block_write_bench(struct dma_bench_dev *dma_bench_dev,
 	req_latency = read_stat_counter(dma_bench_dev, 53);
 
 	dma_block_write(dma_bench_dev, dma_addr, 0, 0x3fff, stride,
-	                0, 0, 0x3fff, stride, size, count);
+			0, 0, 0x3fff, stride, size, count);
 
 	cycles = ioread32(dma_bench_dev->hw_addr + 0x001108);
 
@@ -331,8 +332,8 @@ static void dma_block_write_bench(struct dma_bench_dev *dma_bench_dev,
 	req_latency = read_stat_counter(dma_bench_dev, 53) - req_latency;
 
 	dev_info(dma_bench_dev->dev, "wrote %lld blocks of %lld bytes (stride %lld) in %lld ns (%lld ns/op, %lld req, %lld ns/req): %lld Mbps",
-	         count, size, stride, cycles * 4, (op_latency * 4) / op_count, req_count,
-	         (req_latency * 4) / req_count, size * count * 8 * 1000 / (cycles * 4));
+			count, size, stride, cycles * 4, (op_latency * 4) / op_count, req_count,
+			(req_latency * 4) / req_count, size * count * 8 * 1000 / (cycles * 4));
 }
 
 static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
@@ -349,43 +350,43 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	dev_info(dev, " Device: 0x%04x", pdev->device);
 	dev_info(dev, " Class: 0x%06x", pdev->class);
 	dev_info(dev, " PCI ID: %04x:%02x:%02x.%d", pci_domain_nr(pdev->bus),
-	         pdev->bus->number, PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
+			pdev->bus->number, PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
 	if (pdev->pcie_cap) {
 		u16 devctl;
 		u32 lnkcap;
 		u16 lnksta;
+
 		pci_read_config_word(pdev, pdev->pcie_cap + PCI_EXP_DEVCTL, &devctl);
 		pci_read_config_dword(pdev, pdev->pcie_cap + PCI_EXP_LNKCAP, &lnkcap);
 		pci_read_config_word(pdev, pdev->pcie_cap + PCI_EXP_LNKSTA, &lnksta);
+
 		dev_info(dev, " Max payload size: %d bytes",
-		         128 << ((devctl & PCI_EXP_DEVCTL_PAYLOAD) >> 5));
+				128 << ((devctl & PCI_EXP_DEVCTL_PAYLOAD) >> 5));
 		dev_info(dev, " Max read request size: %d bytes",
-		         128 << ((devctl & PCI_EXP_DEVCTL_READRQ) >> 12));
+				128 << ((devctl & PCI_EXP_DEVCTL_READRQ) >> 12));
 		dev_info(dev, " Link capability: gen %d x%d",
-		         lnkcap & PCI_EXP_LNKCAP_SLS, (lnkcap & PCI_EXP_LNKCAP_MLW) >> 4);
+				lnkcap & PCI_EXP_LNKCAP_SLS, (lnkcap & PCI_EXP_LNKCAP_MLW) >> 4);
 		dev_info(dev, " Link status: gen %d x%d",
-		         lnksta & PCI_EXP_LNKSTA_CLS, (lnksta & PCI_EXP_LNKSTA_NLW) >> 4);
+				lnksta & PCI_EXP_LNKSTA_CLS, (lnksta & PCI_EXP_LNKSTA_NLW) >> 4);
 		dev_info(dev, " Relaxed ordering: %s",
-		         devctl & PCI_EXP_DEVCTL_RELAX_EN ? "enabled" : "disabled");
+				devctl & PCI_EXP_DEVCTL_RELAX_EN ? "enabled" : "disabled");
 		dev_info(dev, " Phantom functions: %s",
-		         devctl & PCI_EXP_DEVCTL_PHANTOM ? "enabled" : "disabled");
+				devctl & PCI_EXP_DEVCTL_PHANTOM ? "enabled" : "disabled");
 		dev_info(dev, " Extended tags: %s",
-		         devctl & PCI_EXP_DEVCTL_EXT_TAG ? "enabled" : "disabled");
+				devctl & PCI_EXP_DEVCTL_EXT_TAG ? "enabled" : "disabled");
 		dev_info(dev, " No snoop: %s",
-		         devctl & PCI_EXP_DEVCTL_NOSNOOP_EN ? "enabled" : "disabled");
+				devctl & PCI_EXP_DEVCTL_NOSNOOP_EN ? "enabled" : "disabled");
 	}
 #ifdef CONFIG_NUMA
 	dev_info(dev, " NUMA node: %d", pdev->dev.numa_node);
 #endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
 	pcie_print_link_status(pdev);
 #endif
 
 	dma_bench_dev = devm_kzalloc(dev, sizeof(struct dma_bench_dev), GFP_KERNEL);
-	if (!dma_bench_dev) {
-		dev_err(dev, "Failed to allocate memory");
+	if (!dma_bench_dev)
 		return -ENOMEM;
-	}
 
 	dma_bench_dev->dev = dev;
 	pci_set_drvdata(pdev, dma_bench_dev);
@@ -397,25 +398,23 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	spin_unlock(&dma_bench_devices_lock);
 
 	snprintf(dma_bench_dev->name, sizeof(dma_bench_dev->name),
-	         DRIVER_NAME "%d", dma_bench_dev->id);
+			DRIVER_NAME "%d", dma_bench_dev->id);
 
 	// Allocate DMA buffer
 	dma_bench_dev->dma_region_len = 16 * 1024;
 	dma_bench_dev->dma_region = dma_alloc_coherent(dev, dma_bench_dev->dma_region_len,
-	                                               &dma_bench_dev->dma_region_addr,
-	                                               GFP_KERNEL | __GFP_ZERO);
+			&dma_bench_dev->dma_region_addr, GFP_KERNEL | __GFP_ZERO);
 	if (!dma_bench_dev->dma_region) {
-		dev_err(dev, "Failed to allocate DMA buffer");
 		ret = -ENOMEM;
 		goto fail_dma_alloc;
 	}
 
 	dev_info(dev, "Allocated DMA region virt %p, phys %p",
-	         dma_bench_dev->dma_region, (void *)dma_bench_dev->dma_region_addr);
+			dma_bench_dev->dma_region, (void *)dma_bench_dev->dma_region_addr);
 
 	// Disable ASPM
 	pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S |
-	                       PCIE_LINK_STATE_L1 | PCIE_LINK_STATE_CLKPM);
+			PCIE_LINK_STATE_L1 | PCIE_LINK_STATE_CLKPM);
 
 	// Enable device
 	ret = pci_enable_device_mem(pdev);
@@ -483,7 +482,7 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 
 	dev_info(dev, "read test data");
 	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_NONE, 16, 1,
-	               dma_bench_dev->dma_region, 256, true);
+			dma_bench_dev->dma_region, 256, true);
 
 	dev_info(dev, "check DMA enable");
 	dev_info(dev, "%08x", ioread32(dma_bench_dev->hw_addr + 0x000000));
@@ -502,7 +501,7 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 
 	dev_info(dev, "read test data");
 	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_NONE, 16, 1,
-	               dma_bench_dev->dma_region + 0x0200, 256, true);
+			dma_bench_dev->dma_region + 0x0200, 256, true);
 
 	if (memcmp(dma_bench_dev->dma_region + 0x0000, dma_bench_dev->dma_region + 0x0200, 256) == 0) {
 		dev_info(dev, "test data matches");
@@ -522,8 +521,8 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 		for (size = 1; size <= 8192; size *= 2) {
 			for (stride = size; stride <= max(size, 256llu); stride *= 2) {
 				dma_block_read_bench(dma_bench_dev,
-				                     dma_bench_dev->dma_region_addr + 0x0000,
-				                     size, stride, 10000);
+						dma_bench_dev->dma_region_addr + 0x0000,
+						size, stride, 10000);
 			}
 		}
 
@@ -532,13 +531,13 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 		for (size = 1; size <= 8192; size *= 2) {
 			for (stride = size; stride <= max(size, 256llu); stride *= 2) {
 				dma_block_write_bench(dma_bench_dev,
-				                      dma_bench_dev->dma_region_addr + 0x0000,
-				                      size, stride, 10000);
+						dma_bench_dev->dma_region_addr + 0x0000,
+						size, stride, 10000);
 			}
 		}
 
 		page = alloc_pages_node(NUMA_NO_NODE, GFP_ATOMIC | __GFP_NOWARN |
-			                __GFP_COMP | __GFP_MEMALLOC, 2);
+				__GFP_COMP | __GFP_MEMALLOC, 2);
 
 		if (page) {
 			dma_addr = dma_map_page(dev, page, 0, 4096 * (1 << 2), PCI_DMA_TODEVICE);
@@ -549,8 +548,8 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 				for (size = 1; size <= 8192; size *= 2) {
 					for (stride = size; stride <= max(size, 256llu); stride *= 2) {
 						dma_block_read_bench(dma_bench_dev,
-						                     dma_addr + 0x0000,
-						                     size, stride, 10000);
+								dma_addr + 0x0000,
+								size, stride, 10000);
 					}
 				}
 
@@ -567,8 +566,8 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 				for (size = 1; size <= 8192; size *= 2) {
 					for (stride = size; stride <= max(size, 256llu); stride *= 2) {
 						dma_block_write_bench(dma_bench_dev,
-						                      dma_addr + 0x0000,
-						                      size, stride, 10000);
+								dma_addr + 0x0000,
+								size, stride, 10000);
 					}
 				}
 
@@ -578,12 +577,12 @@ static int dma_bench_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 			}
 		}
 
-		if (page) {
+		if (page)
 			__free_pages(page, 2);
-		} else {
+		else
 			dev_warn(dev, "failed to allocate memory");
-		}
 	}
+
 	// Dump counters
 	dev_info(dev, "Statistics counters");
 	print_counters(dma_bench_dev);
@@ -603,7 +602,7 @@ fail_regions:
 	pci_disable_device(pdev);
 fail_enable_device:
 	dma_free_coherent(dev, dma_bench_dev->dma_region_len, dma_bench_dev->dma_region,
-	                  dma_bench_dev->dma_region_addr);
+			dma_bench_dev->dma_region_addr);
 fail_dma_alloc:
 	spin_lock(&dma_bench_devices_lock);
 	list_del(&dma_bench_dev->dev_list_node);
@@ -627,7 +626,7 @@ static void dma_bench_remove(struct pci_dev *pdev)
 	pci_release_regions(pdev);
 	pci_disable_device(pdev);
 	dma_free_coherent(dev, dma_bench_dev->dma_region_len, dma_bench_dev->dma_region,
-	                  dma_bench_dev->dma_region_addr);
+			dma_bench_dev->dma_region_addr);
 	spin_lock(&dma_bench_devices_lock);
 	list_del(&dma_bench_dev->dev_list_node);
 	spin_unlock(&dma_bench_devices_lock);

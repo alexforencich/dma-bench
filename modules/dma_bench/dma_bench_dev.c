@@ -1,26 +1,25 @@
+// SPDX-License-Identifier: MIT
 /*
-
-Copyright (c) 2021 Alex Forencich
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-*/
+ * Copyright (c) 2021 Alex Forencich
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 
 #include "dma_bench.h"
 #include "dma_bench_ioctl.h"
@@ -49,19 +48,19 @@ static int dma_bench_map_registers(struct dma_bench_dev *dma_bench, struct vm_ar
 	int ret;
 
 	if (map_size > dma_bench->hw_regs_size) {
-		dev_err(dma_bench->dev, "dma_bench_map_registers: Tried to map registers region with wrong size %lu (expected <=%zu)",
-		        vma->vm_end - vma->vm_start, dma_bench->hw_regs_size);
+		dev_err(dma_bench->dev, "%s: Tried to map registers region with wrong size %lu (expected <=%zu)",
+				__func__, vma->vm_end - vma->vm_start, dma_bench->hw_regs_size);
 		return -EINVAL;
 	}
 
 	ret = remap_pfn_range(vma, vma->vm_start, dma_bench->hw_regs_phys >> PAGE_SHIFT,
-	                      map_size, pgprot_noncached(vma->vm_page_prot));
+			map_size, pgprot_noncached(vma->vm_page_prot));
 
 	if (ret)
-		dev_err(dma_bench->dev, "dma_bench_map_registers: remap_pfn_range failed for registers region");
+		dev_err(dma_bench->dev, "%s: remap_pfn_range failed for registers region", __func__);
 	else
-		dev_dbg(dma_bench->dev, "dma_bench_map_registers: Mapped registers region at phys: 0x%pap, virt: 0x%p",
-		        &dma_bench->hw_regs_phys, (void *)vma->vm_start);
+		dev_dbg(dma_bench->dev, "%s: Mapped registers region at phys: 0x%pap, virt: 0x%p",
+				__func__, &dma_bench->hw_regs_phys, (void *)vma->vm_start);
 
 	return ret;
 }
@@ -74,8 +73,8 @@ static int dma_bench_mmap(struct file *file, struct vm_area_struct *vma)
 	if (vma->vm_pgoff == 0)
 		return dma_bench_map_registers(dma_bench, vma);
 
-	dev_err(dma_bench->dev, "dma_bench_mmap: Tried to map an unknown region at page offset %lu",
-	        vma->vm_pgoff);
+	dev_err(dma_bench->dev, "%s: Tried to map an unknown region at page offset %lu",
+			__func__, vma->vm_pgoff);
 	return -EINVAL;
 }
 
