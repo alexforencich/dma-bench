@@ -24,7 +24,9 @@ THE SOFTWARE.
 
 // Language: Verilog 2001
 
+`resetall
 `timescale 1ns / 1ps
+`default_nettype none
 
 /*
  * 10G Ethernet MAC
@@ -45,7 +47,7 @@ module eth_mac_10g #
     parameter TX_PTP_TAG_WIDTH = 16,
     parameter RX_PTP_TS_ENABLE = 0,
     parameter RX_PTP_TS_WIDTH = 96,
-    parameter TX_USER_WIDTH = (TX_PTP_TAG_ENABLE ? TX_PTP_TAG_WIDTH : 0) + 1,
+    parameter TX_USER_WIDTH = (TX_PTP_TS_ENABLE && TX_PTP_TAG_ENABLE ? TX_PTP_TAG_WIDTH : 0) + 1,
     parameter RX_USER_WIDTH = (RX_PTP_TS_ENABLE ? RX_PTP_TS_WIDTH : 0) + 1
 )
 (
@@ -250,3 +252,5 @@ end
 endgenerate
 
 endmodule
+
+`resetall

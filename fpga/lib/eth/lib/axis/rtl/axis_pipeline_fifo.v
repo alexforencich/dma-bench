@@ -24,7 +24,9 @@ THE SOFTWARE.
 
 // Language: Verilog 2001
 
+`resetall
 `timescale 1ns / 1ps
+`default_nettype none
 
 /*
  * AXI4-Stream pipeline FIFO
@@ -83,7 +85,7 @@ module axis_pipeline_fifo #
     output wire [USER_WIDTH-1:0]  m_axis_tuser
 );
 
-parameter FIFO_ADDR_WIDTH = LENGTH < 2 ? 3 : $clog2(LENGTH*4);
+parameter FIFO_ADDR_WIDTH = LENGTH < 2 ? 3 : $clog2(LENGTH*4+1);
 
 generate
 
@@ -254,3 +256,5 @@ end
 endgenerate
 
 endmodule
+
+`resetall
