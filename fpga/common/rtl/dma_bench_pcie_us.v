@@ -46,7 +46,7 @@ module dma_bench_pcie_us #
     // RQ sequence number width
     parameter RQ_SEQ_NUM_WIDTH = AXIS_PCIE_RQ_USER_WIDTH == 60 ? 4 : 6,
     // RQ sequence number tracking enable
-    parameter RQ_SEQ_NUM_ENABLE = 0,
+    parameter RQ_SEQ_NUM_ENABLE = 1,
     // PCIe tag count
     parameter PCIE_TAG_COUNT = 256,
     // Operation table size (read)
@@ -54,13 +54,13 @@ module dma_bench_pcie_us #
     // In-flight transmit limit (read)
     parameter PCIE_DMA_READ_TX_LIMIT = 2**(RQ_SEQ_NUM_WIDTH-1),
     // Transmit flow control (read)
-    parameter PCIE_DMA_READ_TX_FC_ENABLE = 0,
+    parameter PCIE_DMA_READ_TX_FC_ENABLE = 1,
     // Operation table size (write)
     parameter PCIE_DMA_WRITE_OP_TABLE_SIZE = 2**(RQ_SEQ_NUM_WIDTH-1),
     // In-flight transmit limit (write)
     parameter PCIE_DMA_WRITE_TX_LIMIT = 2**(RQ_SEQ_NUM_WIDTH-1),
     // Transmit flow control (write)
-    parameter PCIE_DMA_WRITE_TX_FC_ENABLE = 0,
+    parameter PCIE_DMA_WRITE_TX_FC_ENABLE = 1,
     // BAR0 aperture (log2 size)
     parameter BAR0_APERTURE = 24
 )
