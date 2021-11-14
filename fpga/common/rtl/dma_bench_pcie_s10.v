@@ -24,7 +24,9 @@ THE SOFTWARE.
 
 // Language: Verilog 2001
 
+`resetall
 `timescale 1ns / 1ps
+`default_nettype none
 
 /*
  * PCIe DMA benchmark for Intel Stratix 10 H-Tile/L-Tile
@@ -474,3 +476,5 @@ dma_bench_pcie_inst (
 );
 
 endmodule
+
+`resetall

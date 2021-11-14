@@ -24,7 +24,9 @@ THE SOFTWARE.
 
 // Language: Verilog 2001
 
+`resetall
 `timescale 1ns / 1ps
+`default_nettype none
 
 /*
  * FPGA core logic
@@ -261,3 +263,5 @@ dma_bench_pcie_us_inst (
 );
 
 endmodule
+
+`resetall
