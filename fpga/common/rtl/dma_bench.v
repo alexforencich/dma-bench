@@ -340,8 +340,6 @@ assign m_axis_dma_write_desc_len = dma_write_desc_len_reg;
 assign m_axis_dma_write_desc_tag = dma_write_desc_tag_reg;
 assign m_axis_dma_write_desc_valid = dma_write_desc_valid_reg;
 
-assign dma_enable = dma_enable_reg;
-
 assign msi_irq[0] = (s_axis_dma_read_desc_status_valid && dma_rd_int_en_reg) || (s_axis_dma_write_desc_status_valid && dma_wr_int_en_reg);
 assign msi_irq[31:1] = 31'd0;
 
