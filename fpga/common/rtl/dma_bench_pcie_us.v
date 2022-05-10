@@ -49,6 +49,10 @@ module dma_bench_pcie_us #
     parameter RQ_SEQ_NUM_WIDTH = AXIS_PCIE_RQ_USER_WIDTH == 60 ? 4 : 6,
     // RQ sequence number tracking enable
     parameter RQ_SEQ_NUM_ENABLE = 1,
+    // Immediate enable
+    parameter IMM_ENABLE = 1,
+    // Immediate width
+    parameter IMM_WIDTH = 32,
     // PCIe tag count
     parameter PCIE_TAG_COUNT = 256,
     // Operation table size (read)
@@ -460,6 +464,8 @@ dma_bench_pcie #(
     .TX_SEQ_NUM_WIDTH(TX_SEQ_NUM_WIDTH),
     .TX_SEQ_NUM_ENABLE(TX_SEQ_NUM_ENABLE),
     .PCIE_TAG_COUNT(PCIE_TAG_COUNT),
+    .IMM_ENABLE(IMM_ENABLE),
+    .IMM_WIDTH(IMM_WIDTH),
     .PCIE_DMA_READ_OP_TABLE_SIZE(PCIE_DMA_READ_OP_TABLE_SIZE),
     .PCIE_DMA_READ_TX_LIMIT(PCIE_DMA_READ_TX_LIMIT),
     .PCIE_DMA_READ_TX_FC_ENABLE(PCIE_DMA_READ_TX_FC_ENABLE),

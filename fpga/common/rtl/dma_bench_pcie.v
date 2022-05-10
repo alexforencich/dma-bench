@@ -49,6 +49,10 @@ module dma_bench_pcie #
     parameter TX_SEQ_NUM_ENABLE = 0,
     // PCIe tag count
     parameter PCIE_TAG_COUNT = 256,
+    // Immediate enable
+    parameter IMM_ENABLE = 1,
+    // Immediate width
+    parameter IMM_WIDTH = 32,
     // Operation table size (read)
     parameter PCIE_DMA_READ_OP_TABLE_SIZE = PCIE_TAG_COUNT,
     // In-flight transmit limit (read)
@@ -167,12 +171,12 @@ parameter AXIL_DATA_WIDTH = 32;
 parameter AXIL_ADDR_WIDTH = BAR0_APERTURE;
 parameter AXIL_STRB_WIDTH = (AXIL_DATA_WIDTH/8);
 
+parameter RAM_SEL_WIDTH = 2;
+parameter RAM_ADDR_WIDTH = 16;
 parameter RAM_SEG_COUNT = TLP_SEG_COUNT*2;
 parameter RAM_SEG_DATA_WIDTH = (TLP_SEG_COUNT*TLP_SEG_DATA_WIDTH)*2/RAM_SEG_COUNT;
-parameter RAM_SEG_ADDR_WIDTH = 10;
 parameter RAM_SEG_BE_WIDTH = RAM_SEG_DATA_WIDTH/8;
-parameter RAM_SEL_WIDTH = 2;
-parameter RAM_ADDR_WIDTH = RAM_SEG_ADDR_WIDTH+$clog2(RAM_SEG_COUNT)+$clog2(RAM_SEG_BE_WIDTH);
+parameter RAM_SEG_ADDR_WIDTH = RAM_ADDR_WIDTH-$clog2(RAM_SEG_COUNT*RAM_SEG_BE_WIDTH);
 
 parameter PCIE_ADDR_WIDTH = 64;
 parameter DMA_LEN_WIDTH = 16;
@@ -213,6 +217,8 @@ wire                        axis_dma_read_desc_status_valid;
 wire [PCIE_ADDR_WIDTH-1:0]  axis_dma_write_desc_dma_addr;
 wire [RAM_SEL_WIDTH-1:0]    axis_dma_write_desc_ram_sel;
 wire [RAM_ADDR_WIDTH-1:0]   axis_dma_write_desc_ram_addr;
+wire [IMM_WIDTH-1:0]        axis_dma_write_desc_imm;
+wire                        axis_dma_write_desc_imm_en;
 wire [DMA_LEN_WIDTH-1:0]    axis_dma_write_desc_len;
 wire [DMA_TAG_WIDTH-1:0]    axis_dma_write_desc_tag;
 wire                        axis_dma_write_desc_valid;
@@ -353,14 +359,16 @@ dma_if_pcie #(
     .TX_SEQ_NUM_COUNT(TX_SEQ_NUM_COUNT),
     .TX_SEQ_NUM_WIDTH(TX_SEQ_NUM_WIDTH),
     .TX_SEQ_NUM_ENABLE(TX_SEQ_NUM_ENABLE),
-    .RAM_SEG_COUNT(RAM_SEG_COUNT),
-    .RAM_SEG_DATA_WIDTH(RAM_SEG_DATA_WIDTH),
-    .RAM_SEG_ADDR_WIDTH(RAM_SEG_ADDR_WIDTH),
-    .RAM_SEG_BE_WIDTH(RAM_SEG_BE_WIDTH),
     .RAM_SEL_WIDTH(RAM_SEL_WIDTH),
     .RAM_ADDR_WIDTH(RAM_ADDR_WIDTH),
+    .RAM_SEG_COUNT(RAM_SEG_COUNT),
+    .RAM_SEG_DATA_WIDTH(RAM_SEG_DATA_WIDTH),
+    .RAM_SEG_BE_WIDTH(RAM_SEG_BE_WIDTH),
+    .RAM_SEG_ADDR_WIDTH(RAM_SEG_ADDR_WIDTH),
     .PCIE_ADDR_WIDTH(PCIE_ADDR_WIDTH),
     .PCIE_TAG_COUNT(PCIE_TAG_COUNT),
+    .IMM_ENABLE(IMM_ENABLE),
+    .IMM_WIDTH(IMM_WIDTH),
     .LEN_WIDTH(DMA_LEN_WIDTH),
     .TAG_WIDTH(DMA_TAG_WIDTH),
     .READ_OP_TABLE_SIZE(PCIE_DMA_READ_OP_TABLE_SIZE),
@@ -448,6 +456,8 @@ dma_if_pcie_inst (
     .s_axis_write_desc_pcie_addr(axis_dma_write_desc_dma_addr),
     .s_axis_write_desc_ram_sel(axis_dma_write_desc_ram_sel),
     .s_axis_write_desc_ram_addr(axis_dma_write_desc_ram_addr),
+    .s_axis_write_desc_imm(axis_dma_write_desc_imm),
+    .s_axis_write_desc_imm_en(axis_dma_write_desc_imm_en),
     .s_axis_write_desc_len(axis_dma_write_desc_len),
     .s_axis_write_desc_tag(axis_dma_write_desc_tag),
     .s_axis_write_desc_valid(axis_dma_write_desc_valid),
@@ -754,6 +764,8 @@ dma_bench #(
     .AXIL_ADDR_WIDTH(AXIL_ADDR_WIDTH),
     .AXIL_STRB_WIDTH(AXIL_STRB_WIDTH),
     .DMA_ADDR_WIDTH(PCIE_ADDR_WIDTH),
+    .DMA_IMM_ENABLE(IMM_ENABLE),
+    .DMA_IMM_WIDTH(IMM_WIDTH),
     .DMA_LEN_WIDTH(DMA_LEN_WIDTH),
     .DMA_TAG_WIDTH(DMA_TAG_WIDTH),
     .RAM_SEG_COUNT(RAM_SEG_COUNT),
@@ -816,6 +828,8 @@ dma_bench_inst (
     .m_axis_dma_write_desc_dma_addr(axis_dma_write_desc_dma_addr),
     .m_axis_dma_write_desc_ram_sel(axis_dma_write_desc_ram_sel),
     .m_axis_dma_write_desc_ram_addr(axis_dma_write_desc_ram_addr),
+    .m_axis_dma_write_desc_imm(axis_dma_write_desc_imm),
+    .m_axis_dma_write_desc_imm_en(axis_dma_write_desc_imm_en),
     .m_axis_dma_write_desc_len(axis_dma_write_desc_len),
     .m_axis_dma_write_desc_tag(axis_dma_write_desc_tag),
     .m_axis_dma_write_desc_valid(axis_dma_write_desc_valid),
