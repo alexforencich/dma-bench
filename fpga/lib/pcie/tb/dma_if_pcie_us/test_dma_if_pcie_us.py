@@ -136,8 +136,8 @@ class TB(object):
         # monitor error outputs
         self.status_error_cor_asserted = False
         self.status_error_uncor_asserted = False
-        cocotb.fork(self._run_monitor_status_error_cor())
-        cocotb.fork(self._run_monitor_status_error_uncor())
+        cocotb.start_soon(self._run_monitor_status_error_cor())
+        cocotb.start_soon(self._run_monitor_status_error_uncor())
 
     def set_idle_generator(self, generator=None):
         if generator:
@@ -179,9 +179,10 @@ async def run_test_write(dut, idle_inserter=None, backpressure_inserter=None):
 
     await tb.rc.enumerate(enable_bus_mastering=True)
 
-    mem_base, mem_data = tb.rc.alloc_region(16*1024*1024)
+    mem = tb.rc.mem_pool.alloc_region(16*1024*1024)
+    mem_base = mem.get_absolute_address(0)
 
-    tb.dut.write_enable <= 1
+    tb.dut.write_enable.value = 1
 
     for length in list(range(0, byte_lanes+3))+list(range(128-4, 128+4))+[1024]:
         for pcie_offset in list(range(4))+list(range(4096-4, 4096)):
@@ -192,7 +193,7 @@ async def run_test_write(dut, idle_inserter=None, backpressure_inserter=None):
                 test_data = bytearray([x % 256 for x in range(length)])
 
                 tb.dma_ram.write(ram_addr & 0xffff80, b'\x55'*(len(test_data)+256))
-                mem_data[pcie_addr-128:pcie_addr-128+len(test_data)+256] = b'\xaa'*(len(test_data)+256)
+                mem[pcie_addr-128:pcie_addr-128+len(test_data)+256] = b'\xaa'*(len(test_data)+256)
                 tb.dma_ram.write(ram_addr, test_data)
 
                 tb.log.debug("%s", tb.dma_ram.hexdump_str((ram_addr & ~0xf)-16, (((ram_addr & 0xf)+length-1) & ~0xf)+48, prefix="RAM "))
@@ -209,9 +210,9 @@ async def run_test_write(dut, idle_inserter=None, backpressure_inserter=None):
                 assert int(status.tag) == cur_tag
                 assert int(status.error) == 0
 
-                tb.log.debug("%s", hexdump_str(mem_data, (pcie_addr & ~0xf)-16, (((pcie_addr & 0xf)+length-1) & ~0xf)+48, prefix="PCIe "))
+                tb.log.debug("%s", hexdump_str(mem, (pcie_addr & ~0xf)-16, (((pcie_addr & 0xf)+length-1) & ~0xf)+48, prefix="PCIe "))
 
-                assert mem_data[pcie_addr-1:pcie_addr+len(test_data)+1] == b'\xaa'+test_data+b'\xaa'
+                assert mem[pcie_addr-1:pcie_addr+len(test_data)+1] == b'\xaa'+test_data+b'\xaa'
 
                 cur_tag = (cur_tag + 1) % tag_count
 
@@ -236,9 +237,10 @@ async def run_test_read(dut, idle_inserter=None, backpressure_inserter=None):
 
     await tb.rc.enumerate(enable_bus_mastering=True)
 
-    mem_base, mem_data = tb.rc.alloc_region(16*1024*1024)
+    mem = tb.rc.mem_pool.alloc_region(16*1024*1024)
+    mem_base = mem.get_absolute_address(0)
 
-    tb.dut.read_enable <= 1
+    tb.dut.read_enable.value = 1
 
     for length in list(range(0, byte_lanes+3))+list(range(128-4, 128+4))+[1024]:
         for pcie_offset in list(range(4))+list(range(4096-4, 4096)):
@@ -248,9 +250,9 @@ async def run_test_read(dut, idle_inserter=None, backpressure_inserter=None):
                 ram_addr = ram_offset+0x1000
                 test_data = bytearray([x % 256 for x in range(length)])
 
-                mem_data[pcie_addr:pcie_addr+len(test_data)] = test_data
+                mem[pcie_addr:pcie_addr+len(test_data)] = test_data
 
-                tb.log.debug("%s", hexdump_str(mem_data, (pcie_addr & ~0xf)-16, (((pcie_addr & 0xf)+length-1) & ~0xf)+48, prefix="PCIe "))
+                tb.log.debug("%s", hexdump_str(mem, (pcie_addr & ~0xf)-16, (((pcie_addr & 0xf)+length-1) & ~0xf)+48, prefix="PCIe "))
 
                 tb.dma_ram.write(ram_addr-256, b'\xaa'*(len(test_data)+512))
 
@@ -290,9 +292,10 @@ async def run_test_read_errors(dut, idle_inserter=None, backpressure_inserter=No
 
     await tb.rc.enumerate(enable_bus_mastering=True)
 
-    mem_base, mem_data = tb.rc.alloc_region(16*1024*1024)
+    mem = tb.rc.mem_pool.alloc_region(16*1024*1024)
+    mem_base = mem.get_absolute_address(0)
 
-    tb.dut.read_enable <= 1
+    tb.dut.read_enable.value = 1
 
     tb.log.info("Test bad DMA read (UR) short")
 
@@ -304,7 +307,7 @@ async def run_test_read_errors(dut, idle_inserter=None, backpressure_inserter=No
     tb.log.info("status: %s", status)
 
     assert int(status.tag) == cur_tag
-    assert int(status.error) == 10
+    assert int(status.error) in {10, 11}
 
     cur_tag = (cur_tag + 1) % tag_count
 
@@ -318,7 +321,7 @@ async def run_test_read_errors(dut, idle_inserter=None, backpressure_inserter=No
     tb.log.info("status: %s", status)
 
     assert int(status.tag) == cur_tag
-    assert int(status.error) == 10
+    assert int(status.error) in {10, 11}
 
     cur_tag = (cur_tag + 1) % tag_count
 
@@ -332,7 +335,7 @@ async def run_test_read_errors(dut, idle_inserter=None, backpressure_inserter=No
     tb.log.info("status: %s", status)
 
     assert int(status.tag) == cur_tag
-    assert int(status.error) == 10
+    assert int(status.error) in {10, 11}
 
     cur_tag = (cur_tag + 1) % tag_count
 
@@ -378,12 +381,12 @@ def test_dma_if_pcie_us(request, axis_pcie_data_width):
     parameters = {}
 
     # segmented interface parameters
+    ram_sel_width = 2
+    ram_addr_width = 16
     seg_count = max(2, axis_pcie_data_width*2 // 128)
     seg_data_width = axis_pcie_data_width*2 // seg_count
-    seg_addr_width = 12
     seg_be_width = seg_data_width // 8
-    ram_sel_width = 2
-    ram_addr_width = seg_addr_width + (seg_count*seg_be_width-1).bit_length()
+    seg_addr_width = ram_addr_width - (seg_count*seg_be_width-1).bit_length()
 
     parameters['AXIS_PCIE_DATA_WIDTH'] = axis_pcie_data_width
     parameters['AXIS_PCIE_KEEP_WIDTH'] = parameters['AXIS_PCIE_DATA_WIDTH'] // 32
@@ -391,12 +394,12 @@ def test_dma_if_pcie_us(request, axis_pcie_data_width):
     parameters['AXIS_PCIE_RC_USER_WIDTH'] = 75 if parameters['AXIS_PCIE_DATA_WIDTH'] < 512 else 161
     parameters['RQ_SEQ_NUM_WIDTH'] = 4 if parameters['AXIS_PCIE_RQ_USER_WIDTH'] == 60 else 6
     parameters['RQ_SEQ_NUM_ENABLE'] = 1
-    parameters['SEG_COUNT'] = seg_count
-    parameters['SEG_DATA_WIDTH'] = seg_data_width
-    parameters['SEG_ADDR_WIDTH'] = seg_addr_width
-    parameters['SEG_BE_WIDTH'] = seg_be_width
     parameters['RAM_SEL_WIDTH'] = ram_sel_width
     parameters['RAM_ADDR_WIDTH'] = ram_addr_width
+    parameters['SEG_COUNT'] = seg_count
+    parameters['SEG_DATA_WIDTH'] = seg_data_width
+    parameters['SEG_BE_WIDTH'] = seg_be_width
+    parameters['SEG_ADDR_WIDTH'] = seg_addr_width
     parameters['PCIE_ADDR_WIDTH'] = 64
     parameters['PCIE_TAG_COUNT'] = 64 if parameters['AXIS_PCIE_RQ_USER_WIDTH'] == 60 else 256
     parameters['LEN_WIDTH'] = 20

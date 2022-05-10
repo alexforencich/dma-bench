@@ -66,7 +66,7 @@ class TB(object):
         self.log = logging.getLogger("cocotb.tb")
         self.log.setLevel(logging.DEBUG)
 
-        cocotb.fork(Clock(dut.clk, 4, units="ns").start())
+        cocotb.start_soon(Clock(dut.clk, 4, units="ns").start())
 
         # write interface
         self.write_desc_source = DescSource(DescBus.from_prefix(dut, "s_axis_write_desc"), dut.clk, dut.rst)
@@ -94,10 +94,10 @@ class TB(object):
         self.dut.rst.setimmediatevalue(0)
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
-        self.dut.rst <= 1
+        self.dut.rst.value = 1
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
-        self.dut.rst <= 0
+        self.dut.rst.value = 0
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
 
@@ -117,7 +117,7 @@ async def run_test_write(dut, data_in=None, idle_inserter=None, backpressure_ins
     tb.set_idle_generator(idle_inserter)
     tb.set_backpressure_generator(backpressure_inserter)
 
-    dut.enable <= 1
+    dut.enable.value = 1
 
     for length in list(range(1, byte_lanes*3+1))+[128]:
         for offset in range(0, byte_lanes*2, step_size):
@@ -191,17 +191,17 @@ def test_dma_client_axis_sink(request, ram_data_width, axis_data_width):
     parameters = {}
 
     # segmented interface parameters
+    ram_addr_width = 16
     seg_count = max(2, ram_data_width // 128)
     seg_data_width = ram_data_width // seg_count
-    seg_addr_width = 12
     seg_be_width = seg_data_width // 8
-    ram_addr_width = seg_addr_width + (seg_count*seg_be_width-1).bit_length()
+    seg_addr_width = ram_addr_width - (seg_count*seg_be_width-1).bit_length()
 
+    parameters['RAM_ADDR_WIDTH'] = ram_addr_width
     parameters['SEG_COUNT'] = seg_count
     parameters['SEG_DATA_WIDTH'] = seg_data_width
-    parameters['SEG_ADDR_WIDTH'] = seg_addr_width
     parameters['SEG_BE_WIDTH'] = seg_be_width
-    parameters['RAM_ADDR_WIDTH'] = ram_addr_width
+    parameters['SEG_ADDR_WIDTH'] = seg_addr_width
     parameters['AXIS_DATA_WIDTH'] = axis_data_width
     parameters['AXIS_KEEP_ENABLE'] = int(axis_data_width > 8)
     parameters['AXIS_KEEP_WIDTH'] = axis_data_width // 8

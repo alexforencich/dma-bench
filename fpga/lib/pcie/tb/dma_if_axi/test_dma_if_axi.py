@@ -65,7 +65,7 @@ class TB(object):
         self.log = logging.getLogger("cocotb.tb")
         self.log.setLevel(logging.DEBUG)
 
-        cocotb.fork(Clock(dut.clk, 10, units="ns").start())
+        cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
 
         # AXI RAM
         self.axi_ram = AxiRam(AxiBus.from_prefix(dut, "m_axi"), dut.clk, dut.rst, size=2**16)
@@ -100,10 +100,10 @@ class TB(object):
         self.dut.rst.setimmediatevalue(0)
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
-        self.dut.rst <= 1
+        self.dut.rst.value = 1
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
-        self.dut.rst <= 0
+        self.dut.rst.value = 0
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
 
@@ -123,7 +123,7 @@ async def run_test_write(dut, idle_inserter=None, backpressure_inserter=None):
 
     await tb.cycle_reset()
 
-    tb.dut.write_enable <= 1
+    tb.dut.write_enable.value = 1
 
     for length in list(range(1, ram_byte_lanes+3))+list(range(128-4, 128+4))+[1024]:
         # for axi_offset in axi_offsets:
@@ -175,7 +175,7 @@ async def run_test_read(dut, idle_inserter=None, backpressure_inserter=None):
 
     await tb.cycle_reset()
 
-    tb.dut.read_enable <= 1
+    tb.dut.read_enable.value = 1
 
     for length in list(range(1, ram_byte_lanes+3))+list(range(128-4, 128+4))+[1024]:
         for axi_offset in list(range(axi_byte_lanes+1))+list(range(4096-axi_byte_lanes, 4096)):
@@ -246,28 +246,29 @@ def test_dma_if_axi(request, axi_data_width):
     parameters = {}
 
     # segmented interface parameters
+    ram_sel_width = 2
+    ram_addr_width = 16
     ram_seg_count = 2
     ram_seg_data_width = axi_data_width*2 // ram_seg_count
-    ram_seg_addr_width = 12
     ram_seg_be_width = ram_seg_data_width // 8
-    ram_sel_width = 2
-    ram_addr_width = ram_seg_addr_width + (ram_seg_count*ram_seg_be_width-1).bit_length()
+    ram_seg_addr_width = ram_addr_width - (ram_seg_count*ram_seg_be_width-1).bit_length()
 
     parameters['AXI_DATA_WIDTH'] = axi_data_width
     parameters['AXI_ADDR_WIDTH'] = 16
     parameters['AXI_STRB_WIDTH'] = parameters['AXI_DATA_WIDTH'] // 8
     parameters['AXI_ID_WIDTH'] = 8
-    parameters['RAM_SEG_COUNT'] = ram_seg_count
-    parameters['RAM_SEG_DATA_WIDTH'] = ram_seg_data_width
-    parameters['RAM_SEG_ADDR_WIDTH'] = ram_seg_addr_width
-    parameters['RAM_SEG_BE_WIDTH'] = ram_seg_be_width
     parameters['RAM_SEL_WIDTH'] = ram_sel_width
     parameters['RAM_ADDR_WIDTH'] = ram_addr_width
+    parameters['RAM_SEG_COUNT'] = ram_seg_count
+    parameters['RAM_SEG_DATA_WIDTH'] = ram_seg_data_width
+    parameters['RAM_SEG_BE_WIDTH'] = ram_seg_be_width
+    parameters['RAM_SEG_ADDR_WIDTH'] = ram_seg_addr_width
     parameters['LEN_WIDTH'] = 16
     parameters['TAG_WIDTH'] = 8
     parameters['READ_OP_TABLE_SIZE'] = 2**parameters['AXI_ID_WIDTH']
     parameters['WRITE_OP_TABLE_SIZE'] = 2**parameters['AXI_ID_WIDTH']
-    parameters['USE_AXI_ID'] = 1
+    parameters['READ_USE_AXI_ID'] = 0
+    parameters['WRITE_USE_AXI_ID'] = 1
 
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
 

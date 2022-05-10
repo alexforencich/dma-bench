@@ -123,7 +123,7 @@ class PsdpRamWrite(Memory):
         self.bus.wr_cmd_ready.setimmediatevalue(0)
         self.bus.wr_done.setimmediatevalue(0)
 
-        cocotb.fork(self._run())
+        cocotb.start_soon(self._run())
 
     def set_pause_generator(self, generator=None):
         if self._pause_cr is not None:
@@ -133,7 +133,7 @@ class PsdpRamWrite(Memory):
         self._pause_generator = generator
 
         if self._pause_generator is not None:
-            self._pause_cr = cocotb.fork(self._run_pause())
+            self._pause_cr = cocotb.start_soon(self._run_pause())
 
     def clear_pause_generator(self):
         self.set_pause_generator(None)
@@ -146,10 +146,12 @@ class PsdpRamWrite(Memory):
 
             wr_done = 0
 
-            cmd_be_sample = self.bus.wr_cmd_be.value
-            cmd_addr_sample = self.bus.wr_cmd_addr.value
-            cmd_data_sample = self.bus.wr_cmd_data.value
             cmd_valid_sample = self.bus.wr_cmd_valid.value
+
+            if cmd_valid_sample:
+                cmd_be_sample = self.bus.wr_cmd_be.value
+                cmd_addr_sample = self.bus.wr_cmd_addr.value
+                cmd_data_sample = self.bus.wr_cmd_data.value
 
             if self.reset is not None and self.reset.value:
                 self.bus.wr_cmd_ready.setimmediatevalue(0)
@@ -185,8 +187,8 @@ class PsdpRamWrite(Memory):
             if self.pause:
                 cmd_ready = 0
 
-            self.bus.wr_cmd_ready <= cmd_ready
-            self.bus.wr_done <= wr_done
+            self.bus.wr_cmd_ready.value = cmd_ready
+            self.bus.wr_done.value = wr_done
 
     async def _run_pause(self):
         for val in self._pause_generator:
@@ -233,7 +235,7 @@ class PsdpRamRead(Memory):
         self.bus.rd_cmd_ready.setimmediatevalue(0)
         self.bus.rd_resp_valid.setimmediatevalue(0)
 
-        cocotb.fork(self._run())
+        cocotb.start_soon(self._run())
 
     def set_pause_generator(self, generator=None):
         if self._pause_cr is not None:
@@ -243,7 +245,7 @@ class PsdpRamRead(Memory):
         self._pause_generator = generator
 
         if self._pause_generator is not None:
-            self._pause_cr = cocotb.fork(self._run_pause())
+            self._pause_cr = cocotb.start_soon(self._run_pause())
 
     def clear_pause_generator(self):
         self.set_pause_generator(None)
@@ -258,8 +260,10 @@ class PsdpRamRead(Memory):
         while True:
             await RisingEdge(self.clock)
 
-            cmd_addr_sample = self.bus.rd_cmd_addr.value
             cmd_valid_sample = self.bus.rd_cmd_valid.value
+
+            if cmd_valid_sample:
+                cmd_addr_sample = self.bus.rd_cmd_addr.value
 
             resp_ready_sample = self.bus.rd_resp_ready.value
 
@@ -309,10 +313,10 @@ class PsdpRamRead(Memory):
             if self.pause:
                 cmd_ready = 0
 
-            self.bus.rd_cmd_ready <= cmd_ready
+            self.bus.rd_cmd_ready.value = cmd_ready
 
-            self.bus.rd_resp_data <= resp_data
-            self.bus.rd_resp_valid <= resp_valid
+            self.bus.rd_resp_data.value = resp_data
+            self.bus.rd_resp_valid.value = resp_valid
 
     async def _run_pause(self):
         for val in self._pause_generator:

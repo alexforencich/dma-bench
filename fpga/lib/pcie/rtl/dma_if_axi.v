@@ -43,18 +43,22 @@ module dma_if_axi #
     parameter AXI_ID_WIDTH = 8,
     // Maximum AXI burst length to generate
     parameter AXI_MAX_BURST_LEN = 256,
+    // RAM select width
+    parameter RAM_SEL_WIDTH = 2,
+    // RAM address width
+    parameter RAM_ADDR_WIDTH = 16,
     // RAM segment count
     parameter RAM_SEG_COUNT = 2,
     // RAM segment data width
     parameter RAM_SEG_DATA_WIDTH = AXI_DATA_WIDTH*2/RAM_SEG_COUNT,
-    // RAM segment address width
-    parameter RAM_SEG_ADDR_WIDTH = 8,
     // RAM segment byte enable width
     parameter RAM_SEG_BE_WIDTH = RAM_SEG_DATA_WIDTH/8,
-    // RAM select width
-    parameter RAM_SEL_WIDTH = 2,
-    // RAM address width
-    parameter RAM_ADDR_WIDTH = RAM_SEG_ADDR_WIDTH+$clog2(RAM_SEG_COUNT)+$clog2(RAM_SEG_BE_WIDTH),
+    // RAM segment address width
+    parameter RAM_SEG_ADDR_WIDTH = RAM_ADDR_WIDTH-$clog2(RAM_SEG_COUNT*RAM_SEG_BE_WIDTH),
+    // Immediate enable
+    parameter IMM_ENABLE = 0,
+    // Immediate width
+    parameter IMM_WIDTH = 32,
     // Length field width
     parameter LEN_WIDTH = 16,
     // Tag field width
@@ -63,8 +67,10 @@ module dma_if_axi #
     parameter READ_OP_TABLE_SIZE = 2**(AXI_ID_WIDTH),
     // Operation table size (write)
     parameter WRITE_OP_TABLE_SIZE = 2**(AXI_ID_WIDTH),
-    // Use AXI ID signals
-    parameter USE_AXI_ID = 1
+    // Use AXI ID signals (read)
+    parameter READ_USE_AXI_ID = 0,
+    // Use AXI ID signals (write)
+    parameter WRITE_USE_AXI_ID = 1
 )
 (
     input  wire                                         clk,
@@ -133,6 +139,8 @@ module dma_if_axi #
     input  wire [AXI_ADDR_WIDTH-1:0]                    s_axis_write_desc_axi_addr,
     input  wire [RAM_SEL_WIDTH-1:0]                     s_axis_write_desc_ram_sel,
     input  wire [RAM_ADDR_WIDTH-1:0]                    s_axis_write_desc_ram_addr,
+    input  wire [IMM_WIDTH-1:0]                         s_axis_write_desc_imm,
+    input  wire                                         s_axis_write_desc_imm_en,
     input  wire [LEN_WIDTH-1:0]                         s_axis_write_desc_len,
     input  wire [TAG_WIDTH-1:0]                         s_axis_write_desc_tag,
     input  wire                                         s_axis_write_desc_valid,
@@ -167,7 +175,39 @@ module dma_if_axi #
      * Configuration
      */
     input  wire                                         read_enable,
-    input  wire                                         write_enable
+    input  wire                                         write_enable,
+
+    /*
+     * Statistics
+     */
+    output wire [$clog2(READ_OP_TABLE_SIZE)-1:0]        stat_rd_op_start_tag,
+    output wire [LEN_WIDTH-1:0]                         stat_rd_op_start_len,
+    output wire                                         stat_rd_op_start_valid,
+    output wire [$clog2(READ_OP_TABLE_SIZE)-1:0]        stat_rd_op_finish_tag,
+    output wire [3:0]                                   stat_rd_op_finish_status,
+    output wire                                         stat_rd_op_finish_valid,
+    output wire [$clog2(READ_OP_TABLE_SIZE)-1:0]        stat_rd_req_start_tag,
+    output wire [12:0]                                  stat_rd_req_start_len,
+    output wire                                         stat_rd_req_start_valid,
+    output wire [$clog2(READ_OP_TABLE_SIZE)-1:0]        stat_rd_req_finish_tag,
+    output wire [3:0]                                   stat_rd_req_finish_status,
+    output wire                                         stat_rd_req_finish_valid,
+    output wire                                         stat_rd_op_table_full,
+    output wire                                         stat_rd_tx_stall,
+    output wire [$clog2(WRITE_OP_TABLE_SIZE)-1:0]       stat_wr_op_start_tag,
+    output wire [LEN_WIDTH-1:0]                         stat_wr_op_start_len,
+    output wire                                         stat_wr_op_start_valid,
+    output wire [$clog2(WRITE_OP_TABLE_SIZE)-1:0]       stat_wr_op_finish_tag,
+    output wire [3:0]                                   stat_wr_op_finish_status,
+    output wire                                         stat_wr_op_finish_valid,
+    output wire [$clog2(WRITE_OP_TABLE_SIZE)-1:0]       stat_wr_req_start_tag,
+    output wire [12:0]                                  stat_wr_req_start_len,
+    output wire                                         stat_wr_req_start_valid,
+    output wire [$clog2(WRITE_OP_TABLE_SIZE)-1:0]       stat_wr_req_finish_tag,
+    output wire [3:0]                                   stat_wr_req_finish_status,
+    output wire                                         stat_wr_req_finish_valid,
+    output wire                                         stat_wr_op_table_full,
+    output wire                                         stat_wr_tx_stall
 );
 
 dma_if_axi_rd #(
@@ -176,16 +216,16 @@ dma_if_axi_rd #(
     .AXI_STRB_WIDTH(AXI_STRB_WIDTH),
     .AXI_ID_WIDTH(AXI_ID_WIDTH),
     .AXI_MAX_BURST_LEN(AXI_MAX_BURST_LEN),
-    .RAM_SEG_COUNT(RAM_SEG_COUNT),
-    .RAM_SEG_DATA_WIDTH(RAM_SEG_DATA_WIDTH),
-    .RAM_SEG_ADDR_WIDTH(RAM_SEG_ADDR_WIDTH),
-    .RAM_SEG_BE_WIDTH(RAM_SEG_BE_WIDTH),
     .RAM_SEL_WIDTH(RAM_SEL_WIDTH),
     .RAM_ADDR_WIDTH(RAM_ADDR_WIDTH),
+    .RAM_SEG_COUNT(RAM_SEG_COUNT),
+    .RAM_SEG_DATA_WIDTH(RAM_SEG_DATA_WIDTH),
+    .RAM_SEG_BE_WIDTH(RAM_SEG_BE_WIDTH),
+    .RAM_SEG_ADDR_WIDTH(RAM_SEG_ADDR_WIDTH),
     .LEN_WIDTH(LEN_WIDTH),
     .TAG_WIDTH(TAG_WIDTH),
     .OP_TABLE_SIZE(READ_OP_TABLE_SIZE),
-    .USE_AXI_ID(USE_AXI_ID)
+    .USE_AXI_ID(READ_USE_AXI_ID)
 )
 dma_if_axi_rd_inst (
     .clk(clk),
@@ -243,7 +283,25 @@ dma_if_axi_rd_inst (
     /*
      * Configuration
      */
-    .enable(read_enable)
+    .enable(read_enable),
+
+    /*
+     * Statistics
+     */
+    .stat_rd_op_start_tag(stat_rd_op_start_tag),
+    .stat_rd_op_start_len(stat_rd_op_start_len),
+    .stat_rd_op_start_valid(stat_rd_op_start_valid),
+    .stat_rd_op_finish_tag(stat_rd_op_finish_tag),
+    .stat_rd_op_finish_status(stat_rd_op_finish_status),
+    .stat_rd_op_finish_valid(stat_rd_op_finish_valid),
+    .stat_rd_req_start_tag(stat_rd_req_start_tag),
+    .stat_rd_req_start_len(stat_rd_req_start_len),
+    .stat_rd_req_start_valid(stat_rd_req_start_valid),
+    .stat_rd_req_finish_tag(stat_rd_req_finish_tag),
+    .stat_rd_req_finish_status(stat_rd_req_finish_status),
+    .stat_rd_req_finish_valid(stat_rd_req_finish_valid),
+    .stat_rd_op_table_full(stat_rd_op_table_full),
+    .stat_rd_tx_stall(stat_rd_tx_stall)
 );
 
 dma_if_axi_wr #(
@@ -252,16 +310,18 @@ dma_if_axi_wr #(
     .AXI_STRB_WIDTH(AXI_STRB_WIDTH),
     .AXI_ID_WIDTH(AXI_ID_WIDTH),
     .AXI_MAX_BURST_LEN(AXI_MAX_BURST_LEN),
-    .RAM_SEG_COUNT(RAM_SEG_COUNT),
-    .RAM_SEG_DATA_WIDTH(RAM_SEG_DATA_WIDTH),
-    .RAM_SEG_ADDR_WIDTH(RAM_SEG_ADDR_WIDTH),
-    .RAM_SEG_BE_WIDTH(RAM_SEG_BE_WIDTH),
     .RAM_SEL_WIDTH(RAM_SEL_WIDTH),
     .RAM_ADDR_WIDTH(RAM_ADDR_WIDTH),
+    .RAM_SEG_COUNT(RAM_SEG_COUNT),
+    .RAM_SEG_DATA_WIDTH(RAM_SEG_DATA_WIDTH),
+    .RAM_SEG_BE_WIDTH(RAM_SEG_BE_WIDTH),
+    .RAM_SEG_ADDR_WIDTH(RAM_SEG_ADDR_WIDTH),
+    .IMM_ENABLE(IMM_ENABLE),
+    .IMM_WIDTH(IMM_WIDTH),
     .LEN_WIDTH(LEN_WIDTH),
     .TAG_WIDTH(TAG_WIDTH),
     .OP_TABLE_SIZE(WRITE_OP_TABLE_SIZE),
-    .USE_AXI_ID(USE_AXI_ID)
+    .USE_AXI_ID(WRITE_USE_AXI_ID)
 )
 dma_if_axi_wr_inst (
     .clk(clk),
@@ -296,6 +356,8 @@ dma_if_axi_wr_inst (
     .s_axis_write_desc_axi_addr(s_axis_write_desc_axi_addr),
     .s_axis_write_desc_ram_sel(s_axis_write_desc_ram_sel),
     .s_axis_write_desc_ram_addr(s_axis_write_desc_ram_addr),
+    .s_axis_write_desc_imm(s_axis_write_desc_imm),
+    .s_axis_write_desc_imm_en(s_axis_write_desc_imm_en),
     .s_axis_write_desc_len(s_axis_write_desc_len),
     .s_axis_write_desc_tag(s_axis_write_desc_tag),
     .s_axis_write_desc_valid(s_axis_write_desc_valid),
@@ -322,7 +384,25 @@ dma_if_axi_wr_inst (
     /*
      * Configuration
      */
-    .enable(write_enable)
+    .enable(write_enable),
+
+    /*
+     * Statistics
+     */
+    .stat_wr_op_start_tag(stat_wr_op_start_tag),
+    .stat_wr_op_start_len(stat_wr_op_start_len),
+    .stat_wr_op_start_valid(stat_wr_op_start_valid),
+    .stat_wr_op_finish_tag(stat_wr_op_finish_tag),
+    .stat_wr_op_finish_status(stat_wr_op_finish_status),
+    .stat_wr_op_finish_valid(stat_wr_op_finish_valid),
+    .stat_wr_req_start_tag(stat_wr_req_start_tag),
+    .stat_wr_req_start_len(stat_wr_req_start_len),
+    .stat_wr_req_start_valid(stat_wr_req_start_valid),
+    .stat_wr_req_finish_tag(stat_wr_req_finish_tag),
+    .stat_wr_req_finish_status(stat_wr_req_finish_status),
+    .stat_wr_req_finish_valid(stat_wr_req_finish_valid),
+    .stat_wr_op_table_full(stat_wr_op_table_full),
+    .stat_wr_tx_stall(stat_wr_tx_stall)
 );
 
 endmodule
