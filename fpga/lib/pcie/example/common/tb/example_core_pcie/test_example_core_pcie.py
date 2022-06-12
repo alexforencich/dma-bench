@@ -134,13 +134,17 @@ async def run_test(dut):
 
     await tb.cycle_reset()
 
-    await tb.rc.enumerate(enable_bus_mastering=True, configure_msi=True)
+    await tb.rc.enumerate()
 
     mem = tb.rc.mem_pool.alloc_region(16*1024*1024)
     mem_base = mem.get_absolute_address(0)
 
-    dev_pf0_bar0 = tb.rc.tree[0][0].bar_window[0]
-    dev_pf0_bar2 = tb.rc.tree[0][0].bar_window[2]
+    dev = tb.rc.find_device(tb.dev.functions[0].pcie_id)
+    await dev.enable_device()
+    await dev.set_master()
+
+    dev_pf0_bar0 = dev.bar_window[0]
+    dev_pf0_bar2 = dev.bar_window[2]
 
     tb.dut.bus_num.value = tb.dev.bus_num
 
@@ -364,15 +368,10 @@ def test_example_core_pcie(request, pcie_data_width):
 
     parameters = {}
 
-    # segmented interface parameters
-    tlp_seg_count = 1
-    tlp_seg_data_width = pcie_data_width // tlp_seg_count
-    tlp_seg_strb_width = tlp_seg_data_width // 32
-
-    parameters['TLP_SEG_COUNT'] = tlp_seg_count
-    parameters['TLP_SEG_DATA_WIDTH'] = tlp_seg_data_width
-    parameters['TLP_SEG_STRB_WIDTH'] = tlp_seg_strb_width
-    parameters['TLP_SEG_HDR_WIDTH'] = 128
+    parameters['TLP_DATA_WIDTH'] = pcie_data_width
+    parameters['TLP_STRB_WIDTH'] = parameters['TLP_DATA_WIDTH'] // 32
+    parameters['TLP_HDR_WIDTH'] = 128
+    parameters['TLP_SEG_COUNT'] = 1
     parameters['TX_SEQ_NUM_COUNT'] = 1
     parameters['TX_SEQ_NUM_WIDTH'] = 6
     parameters['TX_SEQ_NUM_ENABLE'] = 1

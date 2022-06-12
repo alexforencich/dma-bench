@@ -156,7 +156,10 @@ async def run_test_write(dut, idle_inserter=None, backpressure_inserter=None):
 
     await tb.rc.enumerate()
 
-    dev_bar0 = tb.rc.tree[0][0].bar_window[0]
+    dev = tb.rc.find_device(tb.dev.functions[0].pcie_id)
+    await dev.enable_device()
+
+    dev_bar0 = dev.bar_window[0]
 
     tb.dut.completer_id.value = int(tb.dev.functions[0].pcie_id)
 
@@ -198,7 +201,10 @@ async def run_test_read(dut, idle_inserter=None, backpressure_inserter=None):
 
     await tb.rc.enumerate()
 
-    dev_bar0 = tb.rc.tree[0][0].bar_window[0]
+    dev = tb.rc.find_device(tb.dev.functions[0].pcie_id)
+    await dev.enable_device()
+
+    dev_bar0 = dev.bar_window[0]
 
     tb.dut.completer_id.value = int(tb.dev.functions[0].pcie_id)
 
@@ -237,8 +243,11 @@ async def run_test_bad_ops(dut, idle_inserter=None, backpressure_inserter=None):
 
     await tb.rc.enumerate()
 
-    dev_bar0 = tb.rc.tree[0][0].bar_window[0]
-    dev_bar1 = tb.rc.tree[0][0].bar_window[1]
+    dev = tb.rc.find_device(tb.dev.functions[0].pcie_id)
+    await dev.enable_device()
+
+    dev_bar0 = dev.bar_window[0]
+    dev_bar1 = dev.bar_window[1]
 
     tb.dut.completer_id.value = int(tb.dev.functions[0].pcie_id)
 
@@ -323,15 +332,10 @@ def test_pcie_axil_master(request, pcie_data_width, axil_data_width):
 
     parameters = {}
 
-    # segmented interface parameters
-    tlp_seg_count = 1
-    tlp_seg_data_width = pcie_data_width // tlp_seg_count
-    tlp_seg_strb_width = tlp_seg_data_width // 32
-
-    parameters['TLP_SEG_COUNT'] = tlp_seg_count
-    parameters['TLP_SEG_DATA_WIDTH'] = tlp_seg_data_width
-    parameters['TLP_SEG_STRB_WIDTH'] = tlp_seg_strb_width
-    parameters['TLP_SEG_HDR_WIDTH'] = 128
+    parameters['TLP_DATA_WIDTH'] = pcie_data_width
+    parameters['TLP_STRB_WIDTH'] = parameters['TLP_DATA_WIDTH'] // 32
+    parameters['TLP_HDR_WIDTH'] = 128
+    parameters['TLP_SEG_COUNT'] = 1
     parameters['AXIL_DATA_WIDTH'] = axil_data_width
     parameters['AXIL_ADDR_WIDTH'] = 64
     parameters['AXIL_STRB_WIDTH'] = (axil_data_width // 8)

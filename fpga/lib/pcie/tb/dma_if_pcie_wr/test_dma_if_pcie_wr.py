@@ -142,7 +142,11 @@ async def run_test_write(dut, idle_inserter=None, backpressure_inserter=None):
 
     await tb.cycle_reset()
 
-    await tb.rc.enumerate(enable_bus_mastering=True)
+    await tb.rc.enumerate()
+
+    dev = tb.rc.find_device(tb.dev.functions[0].pcie_id)
+    await dev.enable_device()
+    await dev.set_master()
 
     mem = tb.rc.mem_pool.alloc_region(16*1024*1024)
     mem_base = mem.get_absolute_address(0)
@@ -203,7 +207,11 @@ async def run_test_write_imm(dut, idle_inserter=None, backpressure_inserter=None
 
     await tb.cycle_reset()
 
-    await tb.rc.enumerate(enable_bus_mastering=True)
+    await tb.rc.enumerate()
+
+    dev = tb.rc.find_device(tb.dev.functions[0].pcie_id)
+    await dev.enable_device()
+    await dev.set_master()
 
     mem = tb.rc.mem_pool.alloc_region(16*1024*1024)
     mem_base = mem.get_absolute_address(0)
@@ -277,34 +285,22 @@ def test_dma_if_pcie_wr(request, pcie_data_width, pcie_offset):
 
     parameters = {}
 
-    # segmented interface parameters
-    tlp_seg_count = 1
-    tlp_seg_data_width = pcie_data_width // tlp_seg_count
-    tlp_seg_strb_width = tlp_seg_data_width // 32
-
-    ram_sel_width = 2
-    ram_addr_width = 16
-    ram_seg_count = tlp_seg_count*2
-    ram_seg_data_width = (tlp_seg_count*tlp_seg_data_width)*2 // ram_seg_count
-    ram_seg_be_width = ram_seg_data_width // 8
-    ram_seg_addr_width = ram_addr_width - (ram_seg_count*ram_seg_be_width-1).bit_length()
-
-    parameters['TLP_SEG_COUNT'] = tlp_seg_count
-    parameters['TLP_SEG_DATA_WIDTH'] = tlp_seg_data_width
-    parameters['TLP_SEG_STRB_WIDTH'] = tlp_seg_strb_width
-    parameters['TLP_SEG_HDR_WIDTH'] = 128
+    parameters['TLP_DATA_WIDTH'] = pcie_data_width
+    parameters['TLP_STRB_WIDTH'] = parameters['TLP_DATA_WIDTH'] // 32
+    parameters['TLP_HDR_WIDTH'] = 128
+    parameters['TLP_SEG_COUNT'] = 1
     parameters['TX_SEQ_NUM_COUNT'] = 1
     parameters['TX_SEQ_NUM_WIDTH'] = 6
     parameters['TX_SEQ_NUM_ENABLE'] = 1
-    parameters['RAM_SEL_WIDTH'] = ram_sel_width
-    parameters['RAM_ADDR_WIDTH'] = ram_addr_width
-    parameters['RAM_SEG_COUNT'] = ram_seg_count
-    parameters['RAM_SEG_DATA_WIDTH'] = ram_seg_data_width
-    parameters['RAM_SEG_BE_WIDTH'] = ram_seg_be_width
-    parameters['RAM_SEG_ADDR_WIDTH'] = ram_seg_addr_width
+    parameters['RAM_SEL_WIDTH'] = 2
+    parameters['RAM_ADDR_WIDTH'] = 16
+    parameters['RAM_SEG_COUNT'] = parameters['TLP_SEG_COUNT']*2
+    parameters['RAM_SEG_DATA_WIDTH'] = parameters['TLP_DATA_WIDTH']*2 // parameters['RAM_SEG_COUNT']
+    parameters['RAM_SEG_BE_WIDTH'] = parameters['RAM_SEG_DATA_WIDTH'] // 8
+    parameters['RAM_SEG_ADDR_WIDTH'] = parameters['RAM_ADDR_WIDTH'] - (parameters['RAM_SEG_COUNT']*parameters['RAM_SEG_BE_WIDTH']-1).bit_length()
     parameters['PCIE_ADDR_WIDTH'] = 64
     parameters['IMM_ENABLE'] = 1
-    parameters['IMM_WIDTH'] = parameters['TLP_SEG_COUNT'] * parameters['TLP_SEG_DATA_WIDTH']
+    parameters['IMM_WIDTH'] = parameters['TLP_DATA_WIDTH']
     parameters['LEN_WIDTH'] = 20
     parameters['TAG_WIDTH'] = 8
     parameters['OP_TABLE_SIZE'] = 2**(parameters['TX_SEQ_NUM_WIDTH']-1)

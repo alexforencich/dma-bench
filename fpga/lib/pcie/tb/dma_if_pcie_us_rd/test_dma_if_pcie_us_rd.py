@@ -76,19 +76,52 @@ class TB(object):
             # pcie_link_width=2,
             # user_clk_frequency=250e6,
             alignment="dword",
-            cq_cc_straddle=False,
-            rq_rc_straddle=False,
+            cq_straddle=False,
+            cc_straddle=False,
+            rq_straddle=False,
+            rc_straddle=False,
             rc_4tlp_straddle=False,
-            enable_pf1=False,
+            pf_count=1,
+            max_payload_size=1024,
             enable_client_tag=True,
-            enable_extended_tag=False,
+            enable_extended_tag=True,
             enable_parity=False,
             enable_rx_msg_interface=False,
             enable_sriov=False,
             enable_extended_configuration=False,
 
-            enable_pf0_msi=True,
-            enable_pf1_msi=False,
+            pf0_msi_enable=True,
+            pf0_msi_count=32,
+            pf1_msi_enable=False,
+            pf1_msi_count=1,
+            pf2_msi_enable=False,
+            pf2_msi_count=1,
+            pf3_msi_enable=False,
+            pf3_msi_count=1,
+            pf0_msix_enable=False,
+            pf0_msix_table_size=0,
+            pf0_msix_table_bir=0,
+            pf0_msix_table_offset=0x00000000,
+            pf0_msix_pba_bir=0,
+            pf0_msix_pba_offset=0x00000000,
+            pf1_msix_enable=False,
+            pf1_msix_table_size=0,
+            pf1_msix_table_bir=0,
+            pf1_msix_table_offset=0x00000000,
+            pf1_msix_pba_bir=0,
+            pf1_msix_pba_offset=0x00000000,
+            pf2_msix_enable=False,
+            pf2_msix_table_size=0,
+            pf2_msix_table_bir=0,
+            pf2_msix_table_offset=0x00000000,
+            pf2_msix_pba_bir=0,
+            pf2_msix_pba_offset=0x00000000,
+            pf3_msix_enable=False,
+            pf3_msix_table_size=0,
+            pf3_msix_table_bir=0,
+            pf3_msix_table_offset=0x00000000,
+            pf3_msix_pba_bir=0,
+            pf3_msix_pba_offset=0x00000000,
 
             # signals
             user_clk=dut.clk,
@@ -173,7 +206,11 @@ async def run_test_read(dut, idle_inserter=None, backpressure_inserter=None):
     await FallingEdge(dut.rst)
     await Timer(100, 'ns')
 
-    await tb.rc.enumerate(enable_bus_mastering=True)
+    await tb.rc.enumerate()
+
+    dev = tb.rc.find_device(tb.dev.functions[0].pcie_id)
+    await dev.enable_device()
+    await dev.set_master()
 
     mem = tb.rc.mem_pool.alloc_region(16*1024*1024)
     mem_base = mem.get_absolute_address(0)
@@ -228,7 +265,11 @@ async def run_test_read_errors(dut, idle_inserter=None, backpressure_inserter=No
     await FallingEdge(dut.rst)
     await Timer(100, 'ns')
 
-    await tb.rc.enumerate(enable_bus_mastering=True)
+    await tb.rc.enumerate()
+
+    dev = tb.rc.find_device(tb.dev.functions[0].pcie_id)
+    await dev.enable_device()
+    await dev.set_master()
 
     mem = tb.rc.mem_pool.alloc_region(16*1024*1024)
     mem_base = mem.get_absolute_address(0)
@@ -316,26 +357,18 @@ def test_dma_if_pcie_us_rd(request, axis_pcie_data_width, pcie_offset):
 
     parameters = {}
 
-    # segmented interface parameters
-    ram_sel_width = 2
-    ram_addr_width = 16
-    seg_count = max(2, axis_pcie_data_width*2 // 128)
-    seg_data_width = axis_pcie_data_width*2 // seg_count
-    seg_be_width = seg_data_width // 8
-    seg_addr_width = ram_addr_width - (seg_count*seg_be_width-1).bit_length()
-
     parameters['AXIS_PCIE_DATA_WIDTH'] = axis_pcie_data_width
     parameters['AXIS_PCIE_KEEP_WIDTH'] = parameters['AXIS_PCIE_DATA_WIDTH'] // 32
     parameters['AXIS_PCIE_RQ_USER_WIDTH'] = 62 if parameters['AXIS_PCIE_DATA_WIDTH'] < 512 else 137
     parameters['AXIS_PCIE_RC_USER_WIDTH'] = 75 if parameters['AXIS_PCIE_DATA_WIDTH'] < 512 else 161
     parameters['RQ_SEQ_NUM_WIDTH'] = 4 if parameters['AXIS_PCIE_RQ_USER_WIDTH'] == 60 else 6
     parameters['RQ_SEQ_NUM_ENABLE'] = 1
-    parameters['RAM_SEL_WIDTH'] = ram_sel_width
-    parameters['RAM_ADDR_WIDTH'] = ram_addr_width
-    parameters['SEG_COUNT'] = seg_count
-    parameters['SEG_DATA_WIDTH'] = seg_data_width
-    parameters['SEG_BE_WIDTH'] = seg_be_width
-    parameters['SEG_ADDR_WIDTH'] = seg_addr_width
+    parameters['RAM_SEL_WIDTH'] = 2
+    parameters['RAM_ADDR_WIDTH'] = 16
+    parameters['SEG_COUNT'] = max(2, parameters['AXIS_PCIE_DATA_WIDTH']*2 // 128)
+    parameters['SEG_DATA_WIDTH'] = parameters['AXIS_PCIE_DATA_WIDTH']*2 // parameters['SEG_COUNT']
+    parameters['SEG_BE_WIDTH'] = parameters['SEG_DATA_WIDTH'] // 8
+    parameters['SEG_ADDR_WIDTH'] = parameters['RAM_ADDR_WIDTH'] - (parameters['SEG_COUNT']*parameters['SEG_BE_WIDTH']-1).bit_length()
     parameters['PCIE_ADDR_WIDTH'] = 64
     parameters['PCIE_TAG_COUNT'] = 64 if parameters['AXIS_PCIE_RQ_USER_WIDTH'] == 60 else 256
     parameters['LEN_WIDTH'] = 20

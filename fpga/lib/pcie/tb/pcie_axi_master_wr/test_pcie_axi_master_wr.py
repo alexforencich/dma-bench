@@ -140,7 +140,10 @@ async def run_test_write(dut, idle_inserter=None, backpressure_inserter=None):
 
     await tb.rc.enumerate()
 
-    dev_bar0 = tb.rc.tree[0][0].bar_window[0]
+    dev = tb.rc.find_device(tb.dev.functions[0].pcie_id)
+    await dev.enable_device()
+
+    dev_bar0 = dev.bar_window[0]
 
     for length in list(range(0, byte_lanes*2))+[1024]:
         for pcie_offset in list(range(byte_lanes))+list(range(4096-byte_lanes, 4096)):
@@ -175,8 +178,11 @@ async def run_test_bad_ops(dut, idle_inserter=None, backpressure_inserter=None):
 
     await tb.rc.enumerate()
 
-    dev_bar0 = tb.rc.tree[0][0].bar_window[0]
-    dev_bar1 = tb.rc.tree[0][0].bar_window[1]
+    dev = tb.rc.find_device(tb.dev.functions[0].pcie_id)
+    await dev.enable_device()
+
+    dev_bar0 = dev.bar_window[0]
+    dev_bar1 = dev.bar_window[1]
 
     tb.log.info("Test read")
 
@@ -271,14 +277,10 @@ def test_pcie_axi_master_wr(request, pcie_data_width):
 
     parameters = {}
 
-    # segmented interface parameters
-    tlp_seg_count = 1
-    tlp_seg_data_width = pcie_data_width // tlp_seg_count
-
-    parameters['TLP_SEG_COUNT'] = tlp_seg_count
-    parameters['TLP_SEG_DATA_WIDTH'] = tlp_seg_data_width
-    parameters['TLP_SEG_HDR_WIDTH'] = 128
-    parameters['AXI_DATA_WIDTH'] = parameters['TLP_SEG_COUNT'] * parameters['TLP_SEG_DATA_WIDTH']
+    parameters['TLP_DATA_WIDTH'] = pcie_data_width
+    parameters['TLP_HDR_WIDTH'] = 128
+    parameters['TLP_SEG_COUNT'] = 1
+    parameters['AXI_DATA_WIDTH'] = parameters['TLP_DATA_WIDTH']
     parameters['AXI_ADDR_WIDTH'] = 64
     parameters['AXI_STRB_WIDTH'] = parameters['AXI_DATA_WIDTH'] // 8
     parameters['AXI_ID_WIDTH'] = 8

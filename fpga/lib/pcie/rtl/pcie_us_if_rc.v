@@ -39,45 +39,42 @@ module pcie_us_if_rc #
     parameter AXIS_PCIE_KEEP_WIDTH = (AXIS_PCIE_DATA_WIDTH/32),
     // PCIe AXI stream RC tuser signal width
     parameter AXIS_PCIE_RC_USER_WIDTH = AXIS_PCIE_DATA_WIDTH < 512 ? 75 : 161,
-    // PCIe AXI stream RQ tuser signal width
-    parameter AXIS_PCIE_RQ_USER_WIDTH = AXIS_PCIE_DATA_WIDTH < 512 ? 60 : 137,
+    // TLP data width
+    parameter TLP_DATA_WIDTH = AXIS_PCIE_DATA_WIDTH,
+    // TLP strobe width
+    parameter TLP_STRB_WIDTH = TLP_DATA_WIDTH/32,
+    // TLP header width
+    parameter TLP_HDR_WIDTH = 128,
     // TLP segment count
-    parameter TLP_SEG_COUNT = 1,
-    // TLP segment data width
-    parameter TLP_SEG_DATA_WIDTH = AXIS_PCIE_DATA_WIDTH/TLP_SEG_COUNT,
-    // TLP segment strobe width
-    parameter TLP_SEG_STRB_WIDTH = TLP_SEG_DATA_WIDTH/32,
-    // TLP segment header width
-    parameter TLP_SEG_HDR_WIDTH = 128
+    parameter TLP_SEG_COUNT = 1
 )
 (
-    input  wire                                         clk,
-    input  wire                                         rst,
+    input  wire                                    clk,
+    input  wire                                    rst,
 
     /*
      * AXI input (RC)
      */
-    input  wire [AXIS_PCIE_DATA_WIDTH-1:0]              s_axis_rc_tdata,
-    input  wire [AXIS_PCIE_KEEP_WIDTH-1:0]              s_axis_rc_tkeep,
-    input  wire                                         s_axis_rc_tvalid,
-    output wire                                         s_axis_rc_tready,
-    input  wire                                         s_axis_rc_tlast,
-    input  wire [AXIS_PCIE_RC_USER_WIDTH-1:0]           s_axis_rc_tuser,
+    input  wire [AXIS_PCIE_DATA_WIDTH-1:0]         s_axis_rc_tdata,
+    input  wire [AXIS_PCIE_KEEP_WIDTH-1:0]         s_axis_rc_tkeep,
+    input  wire                                    s_axis_rc_tvalid,
+    output wire                                    s_axis_rc_tready,
+    input  wire                                    s_axis_rc_tlast,
+    input  wire [AXIS_PCIE_RC_USER_WIDTH-1:0]      s_axis_rc_tuser,
 
     /*
      * TLP output (completion to DMA)
      */
-    output wire [TLP_SEG_COUNT*TLP_SEG_DATA_WIDTH-1:0]  rx_cpl_tlp_data,
-    output wire [TLP_SEG_COUNT*TLP_SEG_HDR_WIDTH-1:0]   rx_cpl_tlp_hdr,
-    output wire [TLP_SEG_COUNT*4-1:0]                   rx_cpl_tlp_error,
-    output wire [TLP_SEG_COUNT-1:0]                     rx_cpl_tlp_valid,
-    output wire [TLP_SEG_COUNT-1:0]                     rx_cpl_tlp_sop,
-    output wire [TLP_SEG_COUNT-1:0]                     rx_cpl_tlp_eop,
-    input  wire                                         rx_cpl_tlp_ready
+    output wire [TLP_DATA_WIDTH-1:0]               rx_cpl_tlp_data,
+    output wire [TLP_STRB_WIDTH-1:0]               rx_cpl_tlp_strb,
+    output wire [TLP_SEG_COUNT*TLP_HDR_WIDTH-1:0]  rx_cpl_tlp_hdr,
+    output wire [TLP_SEG_COUNT*4-1:0]              rx_cpl_tlp_error,
+    output wire [TLP_SEG_COUNT-1:0]                rx_cpl_tlp_valid,
+    output wire [TLP_SEG_COUNT-1:0]                rx_cpl_tlp_sop,
+    output wire [TLP_SEG_COUNT-1:0]                rx_cpl_tlp_eop,
+    input  wire                                    rx_cpl_tlp_ready
 );
 
-parameter TLP_DATA_WIDTH = TLP_SEG_COUNT*TLP_SEG_DATA_WIDTH;
-parameter TLP_STRB_WIDTH = TLP_SEG_COUNT*TLP_SEG_STRB_WIDTH;
 parameter TLP_DATA_WIDTH_BYTES = TLP_DATA_WIDTH/8;
 parameter TLP_DATA_WIDTH_DWORDS = TLP_DATA_WIDTH/32;
 
@@ -112,12 +109,12 @@ initial begin
         $finish;
     end
 
-    if (TLP_SEG_COUNT*TLP_SEG_DATA_WIDTH != AXIS_PCIE_DATA_WIDTH) begin
+    if (TLP_DATA_WIDTH != AXIS_PCIE_DATA_WIDTH) begin
         $error("Error: Interface widths must match (instance %m)");
         $finish;
     end
 
-    if (TLP_SEG_HDR_WIDTH != 128) begin
+    if (TLP_HDR_WIDTH != 128) begin
         $error("Error: TLP segment header width must be 128 (instance %m)");
         $finish;
     end
@@ -158,14 +155,16 @@ localparam [3:0]
     PCIE_ERROR_FLR = 4'd8,
     PCIE_ERROR_TIMEOUT = 4'd15;
 
-reg [TLP_SEG_COUNT*TLP_SEG_DATA_WIDTH-1:0] rx_cpl_tlp_data_reg = 0, rx_cpl_tlp_data_next;
-reg [TLP_SEG_COUNT*TLP_SEG_HDR_WIDTH-1:0] rx_cpl_tlp_hdr_reg = 0, rx_cpl_tlp_hdr_next;
+reg [TLP_DATA_WIDTH-1:0] rx_cpl_tlp_data_reg = 0, rx_cpl_tlp_data_next;
+reg [TLP_STRB_WIDTH-1:0] rx_cpl_tlp_strb_reg = 0, rx_cpl_tlp_strb_next;
+reg [TLP_SEG_COUNT*TLP_HDR_WIDTH-1:0] rx_cpl_tlp_hdr_reg = 0, rx_cpl_tlp_hdr_next;
 reg [TLP_SEG_COUNT*4-1:0] rx_cpl_tlp_error_reg = 0, rx_cpl_tlp_error_next;
 reg [TLP_SEG_COUNT-1:0] rx_cpl_tlp_valid_reg = 0, rx_cpl_tlp_valid_next;
 reg [TLP_SEG_COUNT-1:0] rx_cpl_tlp_sop_reg = 0, rx_cpl_tlp_sop_next;
 reg [TLP_SEG_COUNT-1:0] rx_cpl_tlp_eop_reg = 0, rx_cpl_tlp_eop_next;
 
 assign rx_cpl_tlp_data = rx_cpl_tlp_data_reg;
+assign rx_cpl_tlp_strb = rx_cpl_tlp_strb_reg;
 assign rx_cpl_tlp_hdr = rx_cpl_tlp_hdr_reg;
 assign rx_cpl_tlp_error = rx_cpl_tlp_error_reg;
 assign rx_cpl_tlp_valid = rx_cpl_tlp_valid_reg;
@@ -184,10 +183,15 @@ reg s_axis_rc_tready_cmb;
 reg tlp_input_frame_reg = 1'b0, tlp_input_frame_next;
 
 reg [AXIS_PCIE_DATA_WIDTH-1:0] rc_tdata_int_reg = {AXIS_PCIE_DATA_WIDTH{1'b0}}, rc_tdata_int_next;
+reg [AXIS_PCIE_KEEP_WIDTH-1:0] rc_tkeep_int_reg = {AXIS_PCIE_KEEP_WIDTH{1'b0}}, rc_tkeep_int_next;
 reg rc_tvalid_int_reg = 1'b0, rc_tvalid_int_next;
 reg rc_tlast_int_reg = 1'b0, rc_tlast_int_next;
 
 wire [AXIS_PCIE_DATA_WIDTH*2-1:0] rc_tdata = {s_axis_rc_tdata, rc_tdata_int_reg};
+wire [AXIS_PCIE_KEEP_WIDTH*2-1:0] rc_tkeep = {s_axis_rc_tkeep, rc_tkeep_int_reg};
+
+reg [127:0] tlp_hdr;
+reg [3:0] tlp_error;
 
 assign s_axis_rc_tready = s_axis_rc_tready_cmb;
 
@@ -195,6 +199,7 @@ always @* begin
     tlp_input_state_next = TLP_INPUT_STATE_IDLE;
 
     rx_cpl_tlp_data_next = rx_cpl_tlp_data_reg;
+    rx_cpl_tlp_strb_next = rx_cpl_tlp_strb_reg;
     rx_cpl_tlp_hdr_next = rx_cpl_tlp_hdr_reg;
     rx_cpl_tlp_error_next = rx_cpl_tlp_error_reg;
     rx_cpl_tlp_valid_next = rx_cpl_tlp_valid_reg && !rx_cpl_tlp_ready;
@@ -206,61 +211,75 @@ always @* begin
     tlp_input_frame_next = tlp_input_frame_reg;
 
     rc_tdata_int_next = rc_tdata_int_reg;
+    rc_tkeep_int_next = rc_tkeep_int_reg;
     rc_tvalid_int_next = rc_tvalid_int_reg;
     rc_tlast_int_next = rc_tlast_int_reg;
+
+    if (s_axis_rc_tready && s_axis_rc_tvalid) begin
+        rc_tdata_int_next = s_axis_rc_tdata;
+        rc_tkeep_int_next = s_axis_rc_tkeep;
+        rc_tvalid_int_next = s_axis_rc_tvalid;
+        rc_tlast_int_next = s_axis_rc_tlast;
+    end
+
+    // parse header
+    // DW 0
+    if (rc_tdata[42:32] != 0) begin
+        tlp_hdr[127:125] = TLP_FMT_3DW_DATA; // fmt - 3DW with data
+    end else begin
+        tlp_hdr[127:125] = TLP_FMT_3DW; // fmt - 3DW without data
+    end
+    tlp_hdr[124:120] = {4'b0101, rc_tdata[29]}; // type - completion
+    tlp_hdr[119] = 1'b0; // T9
+    tlp_hdr[118:116] = rc_tdata[91:89]; // TC
+    tlp_hdr[115] = 1'b0; // T8
+    tlp_hdr[114] = rc_tdata[94]; // attr
+    tlp_hdr[113] = 1'b0; // LN
+    tlp_hdr[112] = 1'b0; // TH
+    tlp_hdr[111] = 1'b0; // TD
+    tlp_hdr[110] = rc_tdata[46]; // EP
+    tlp_hdr[109:108] = rc_tdata[93:92]; // attr
+    tlp_hdr[107:106] = 2'b00; // AT
+    tlp_hdr[105:96] = rc_tdata[42:32]; // length
+    // DW 1
+    tlp_hdr[95:80] = rc_tdata[87:72]; // completer ID
+    tlp_hdr[79:77] = rc_tdata[45:43]; // completion status
+    tlp_hdr[76] = 1'b0; // BCM
+    tlp_hdr[75:64] = rc_tdata[28:16]; // byte count
+    // DW 2
+    tlp_hdr[63:48] = rc_tdata[63:48]; // requester ID
+    tlp_hdr[47:40] = rc_tdata[71:64]; // tag
+    tlp_hdr[39] = 1'b0;
+    tlp_hdr[38:32] = rc_tdata[6:0]; // lower address
+    // DW 3
+    tlp_hdr[31:0] = 32'd0;
+
+    // error code
+    case (rc_tdata[15:12])
+        RC_ERROR_NORMAL_TERMINATION: tlp_error = PCIE_ERROR_NONE;
+        RC_ERROR_POISONED:           tlp_error = PCIE_ERROR_POISONED;
+        RC_ERROR_BAD_STATUS:         tlp_error = PCIE_ERROR_BAD_STATUS;
+        RC_ERROR_INVALID_LENGTH:     tlp_error = PCIE_ERROR_INVALID_LEN;
+        RC_ERROR_MISMATCH:           tlp_error = PCIE_ERROR_MISMATCH;
+        RC_ERROR_INVALID_ADDRESS:    tlp_error = PCIE_ERROR_INVALID_ADDR;
+        RC_ERROR_INVALID_TAG:        tlp_error = PCIE_ERROR_INVALID_TAG;
+        RC_ERROR_FLR:                tlp_error = PCIE_ERROR_FLR;
+        RC_ERROR_TIMEOUT:            tlp_error = PCIE_ERROR_TIMEOUT;
+        default:                     tlp_error = PCIE_ERROR_NONE;
+    endcase
 
     case (tlp_input_state_reg)
         TLP_INPUT_STATE_IDLE: begin
             s_axis_rc_tready_cmb = rx_cpl_tlp_ready;
 
             if (rc_tvalid_int_reg && rx_cpl_tlp_ready) begin
-                // DW 0
-                if (rc_tdata[42:32] != 0) begin
-                    rx_cpl_tlp_hdr_next[127:125] = TLP_FMT_3DW_DATA; // fmt - 3DW with data
-                end else begin
-                    rx_cpl_tlp_hdr_next[127:125] = TLP_FMT_3DW; // fmt - 3DW without data
-                end
-                rx_cpl_tlp_hdr_next[124:120] = {4'b0101, rc_tdata[29]}; // type - completion
-                rx_cpl_tlp_hdr_next[119] = 1'b0; // T9
-                rx_cpl_tlp_hdr_next[118:116] = rc_tdata[91:89]; // TC
-                rx_cpl_tlp_hdr_next[115] = 1'b0; // T8
-                rx_cpl_tlp_hdr_next[114] = rc_tdata[94]; // attr
-                rx_cpl_tlp_hdr_next[113] = 1'b0; // LN
-                rx_cpl_tlp_hdr_next[112] = 1'b0; // TH
-                rx_cpl_tlp_hdr_next[111] = 1'b0; // TD
-                rx_cpl_tlp_hdr_next[110] = rc_tdata[46]; // EP
-                rx_cpl_tlp_hdr_next[109:108] = rc_tdata[93:92]; // attr
-                rx_cpl_tlp_hdr_next[107:106] = 2'b00; // AT
-                rx_cpl_tlp_hdr_next[105:96] = rc_tdata[42:32]; // length
-                // DW 1
-                rx_cpl_tlp_hdr_next[95:80] = rc_tdata[87:72]; // completer ID
-                rx_cpl_tlp_hdr_next[79:77] = rc_tdata[45:43]; // completion status
-                rx_cpl_tlp_hdr_next[76] = 1'b0; // BCM
-                rx_cpl_tlp_hdr_next[75:64] = rc_tdata[28:16]; // byte count
-                // DW 2
-                rx_cpl_tlp_hdr_next[63:48] = rc_tdata[63:48]; // requester ID
-                rx_cpl_tlp_hdr_next[47:40] = rc_tdata[71:64]; // tag
-                rx_cpl_tlp_hdr_next[39] = 1'b0;
-                rx_cpl_tlp_hdr_next[38:32] = rc_tdata[6:0]; // lower address
-                // DW 3
-                rx_cpl_tlp_hdr_next[31:0] = 32'd0;
 
-                // error code
-                case (rc_tdata[15:12])
-                    RC_ERROR_NORMAL_TERMINATION: rx_cpl_tlp_error_next = PCIE_ERROR_NONE;
-                    RC_ERROR_POISONED:           rx_cpl_tlp_error_next = PCIE_ERROR_POISONED;
-                    RC_ERROR_BAD_STATUS:         rx_cpl_tlp_error_next = PCIE_ERROR_BAD_STATUS;
-                    RC_ERROR_INVALID_LENGTH:     rx_cpl_tlp_error_next = PCIE_ERROR_INVALID_LEN;
-                    RC_ERROR_MISMATCH:           rx_cpl_tlp_error_next = PCIE_ERROR_MISMATCH;
-                    RC_ERROR_INVALID_ADDRESS:    rx_cpl_tlp_error_next = PCIE_ERROR_INVALID_ADDR;
-                    RC_ERROR_INVALID_TAG:        rx_cpl_tlp_error_next = PCIE_ERROR_INVALID_TAG;
-                    RC_ERROR_FLR:                rx_cpl_tlp_error_next = PCIE_ERROR_FLR;
-                    RC_ERROR_TIMEOUT:            rx_cpl_tlp_error_next = PCIE_ERROR_TIMEOUT;
-                    default:                     rx_cpl_tlp_error_next = PCIE_ERROR_NONE;
-                endcase
+                rx_cpl_tlp_hdr_next = tlp_hdr;
+                rx_cpl_tlp_error_next = tlp_error;
 
                 if (AXIS_PCIE_DATA_WIDTH > 64) begin
-                    rx_cpl_tlp_data_next = rc_tdata[AXIS_PCIE_DATA_WIDTH+96-1:96];
+                    rx_cpl_tlp_data_next = rc_tdata >> 96;
+                    rx_cpl_tlp_strb_next = rc_tkeep >> 3;
                     rx_cpl_tlp_sop_next = 1'b1;
                     rx_cpl_tlp_eop_next = 1'b0;
 
@@ -268,23 +287,47 @@ always @* begin
 
                     if (rc_tlast_int_reg) begin
                         rx_cpl_tlp_valid_next = 1'b1;
+                        rx_cpl_tlp_strb_next = rc_tkeep_int_reg >> 3;
                         rx_cpl_tlp_eop_next = 1'b1;
-                        rc_tvalid_int_next = 1'b0;
+                        rc_tvalid_int_next = s_axis_rc_tready && s_axis_rc_tvalid;
                         tlp_input_frame_next = 1'b0;
                         tlp_input_state_next = TLP_INPUT_STATE_IDLE;
                     end else if (s_axis_rc_tready && s_axis_rc_tvalid) begin
-                        rx_cpl_tlp_valid_next = 1'b1;
-                        tlp_input_state_next = TLP_INPUT_STATE_PAYLOAD;
+                        if (s_axis_rc_tlast && s_axis_rc_tkeep >> 3 == 0) begin
+                            rx_cpl_tlp_valid_next = 1'b1;
+                            rx_cpl_tlp_eop_next = 1'b1;
+                            rc_tvalid_int_next = 1'b0;
+                            tlp_input_frame_next = 1'b0;
+                            tlp_input_state_next = TLP_INPUT_STATE_IDLE;
+                        end else begin
+                            rx_cpl_tlp_valid_next = 1'b1;
+                            tlp_input_frame_next = 1'b1;
+                            tlp_input_state_next = TLP_INPUT_STATE_PAYLOAD;
+                        end
                     end else begin
                         tlp_input_state_next = TLP_INPUT_STATE_IDLE;
                     end
                 end else begin
+                    rx_cpl_tlp_data_next = rc_tdata >> 96;
+                    rx_cpl_tlp_strb_next = rc_tkeep >> 3;
+                    rx_cpl_tlp_sop_next = 1'b1;
+                    rx_cpl_tlp_eop_next = 1'b0;
+
                     if (rc_tlast_int_reg) begin
-                        rc_tvalid_int_next = 1'b0;
+                        rc_tvalid_int_next = s_axis_rc_tready && s_axis_rc_tvalid;
                         tlp_input_frame_next = 1'b0;
                         tlp_input_state_next = TLP_INPUT_STATE_IDLE;
                     end else if (s_axis_rc_tready && s_axis_rc_tvalid) begin
-                        tlp_input_state_next = TLP_INPUT_STATE_PAYLOAD;
+                        if (s_axis_rc_tlast) begin
+                            rx_cpl_tlp_valid_next = 1'b1;
+                            rx_cpl_tlp_strb_next = s_axis_rc_tkeep >> 1;
+                            rx_cpl_tlp_eop_next = 1'b1;
+                            rc_tvalid_int_next = 1'b0;
+                            tlp_input_frame_next = 1'b0;
+                            tlp_input_state_next = TLP_INPUT_STATE_IDLE;
+                        end else begin
+                            tlp_input_state_next = TLP_INPUT_STATE_PAYLOAD;
+                        end
                     end else begin
                         tlp_input_state_next = TLP_INPUT_STATE_IDLE;
                     end
@@ -299,24 +342,39 @@ always @* begin
             if (rc_tvalid_int_reg && rx_cpl_tlp_ready) begin
 
                 if (AXIS_PCIE_DATA_WIDTH > 64) begin
-                    rx_cpl_tlp_data_next = rc_tdata[AXIS_PCIE_DATA_WIDTH+96-1:96];
+                    rx_cpl_tlp_data_next = rc_tdata >> 96;
+                    rx_cpl_tlp_strb_next = rc_tkeep >> 3;
                     rx_cpl_tlp_sop_next = 1'b0;
                 end else begin
-                    rx_cpl_tlp_data_next = rc_tdata[AXIS_PCIE_DATA_WIDTH+32-1:32];
+                    rx_cpl_tlp_data_next = rc_tdata >> 32;
+                    rx_cpl_tlp_strb_next = rc_tkeep >> 1;
                     rx_cpl_tlp_sop_next = !tlp_input_frame_reg;
                 end
                 rx_cpl_tlp_eop_next = 1'b0;
 
                 if (rc_tlast_int_reg) begin
                     rx_cpl_tlp_valid_next = 1'b1;
+                    if (AXIS_PCIE_DATA_WIDTH > 64) begin
+                        rx_cpl_tlp_strb_next = rc_tkeep_int_reg >> 3;
+                    end else begin
+                        rx_cpl_tlp_strb_next = rc_tkeep_int_reg >> 1;
+                    end
                     rx_cpl_tlp_eop_next = 1'b1;
-                    rc_tvalid_int_next = 1'b0;
+                    rc_tvalid_int_next = s_axis_rc_tready && s_axis_rc_tvalid;
                     tlp_input_frame_next = 1'b0;
                     tlp_input_state_next = TLP_INPUT_STATE_IDLE;
                 end else if (s_axis_rc_tready && s_axis_rc_tvalid) begin
-                    rx_cpl_tlp_valid_next = 1'b1;
-                    tlp_input_frame_next = 1'b1;
-                    tlp_input_state_next = TLP_INPUT_STATE_PAYLOAD;
+                    if (s_axis_rc_tlast && (s_axis_rc_tkeep >> (AXIS_PCIE_DATA_WIDTH > 64 ? 3 : 1)) == 0) begin
+                        rx_cpl_tlp_valid_next = 1'b1;
+                        rx_cpl_tlp_eop_next = 1'b1;
+                        rc_tvalid_int_next = 1'b0;
+                        tlp_input_frame_next = 1'b0;
+                        tlp_input_state_next = TLP_INPUT_STATE_IDLE;
+                    end else begin
+                        rx_cpl_tlp_valid_next = 1'b1;
+                        tlp_input_frame_next = 1'b1;
+                        tlp_input_state_next = TLP_INPUT_STATE_PAYLOAD;
+                    end
                 end else begin
                     tlp_input_state_next = TLP_INPUT_STATE_PAYLOAD;
                 end
@@ -325,18 +383,13 @@ always @* begin
             end
         end
     endcase
-
-    if (s_axis_rc_tready && s_axis_rc_tvalid) begin
-        rc_tdata_int_next = s_axis_rc_tdata;
-        rc_tvalid_int_next = s_axis_rc_tvalid;
-        rc_tlast_int_next = s_axis_rc_tlast;
-    end
 end
 
 always @(posedge clk) begin
     tlp_input_state_reg <= tlp_input_state_next;
 
     rx_cpl_tlp_data_reg <= rx_cpl_tlp_data_next;
+    rx_cpl_tlp_strb_reg <= rx_cpl_tlp_strb_next;
     rx_cpl_tlp_hdr_reg <= rx_cpl_tlp_hdr_next;
     rx_cpl_tlp_error_reg <= rx_cpl_tlp_error_next;
     rx_cpl_tlp_valid_reg <= rx_cpl_tlp_valid_next;
@@ -346,6 +399,7 @@ always @(posedge clk) begin
     tlp_input_frame_reg <= tlp_input_frame_next;
 
     rc_tdata_int_reg <= rc_tdata_int_next;
+    rc_tkeep_int_reg <= rc_tkeep_int_next;
     rc_tvalid_int_reg <= rc_tvalid_int_next;
     rc_tlast_int_reg <= rc_tlast_int_next;
 
