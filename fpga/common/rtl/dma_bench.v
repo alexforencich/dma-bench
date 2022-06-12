@@ -500,6 +500,7 @@ always @* begin
         // read operation
         axil_csr_arready_next = 1'b1;
         axil_csr_rresp_next = 2'b00;
+        axil_csr_rdata_next = 32'd0;
         axil_csr_rvalid_next = 1'b1;
 
         case ({axil_csr_araddr[15:2], 2'b00})
